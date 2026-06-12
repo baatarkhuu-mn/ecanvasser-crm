@@ -601,7 +601,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="rb-ic">📣</div>
       <div id="kpiWelcome">Таны гүйцэтгэлийн үзүүлэлт доор байна.</div>
     </div>
-    <div class="kpi-row" id="myKpiCards"></div>
+    <div class="kpi-row" id="myKpiCards" style="grid-template-columns:repeat(2,1fr)"></div>
     <div class="card panel">
       <div class="panel-head"><h3>Дэлгэрэнгүй</h3></div>
       <div id="myKpiDetail"></div>
@@ -775,7 +775,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="card table-wrap">
       <table>
         <thead><tr>
-          <th>#</th><th>Ухуулагч</th><th>Хариуцсан байршил</th><th>Хүрсэн гэр</th><th>Бүртгэсэн дэмжигч</th><th>Хамралт</th><th>Судалгаа</th><th>Статус</th>
+          <th>#</th><th>Ухуулагч</th><th>Хариуцсан байршил</th><th>Хүрсэн гэр</th><th>Бүртгэсэн дэмжигч</th><th>Хувиргалт</th><th>Статус</th>
         </tr></thead>
         <tbody id="canvasserBody"></tbody>
       </table>
@@ -1068,9 +1068,7 @@ async function loadMyKpi(){
   const conv=c.reached>0?Math.round(c.supporters/c.reached*100):0;
   box.innerHTML=`
     <div class="card stat"><div class="ic" style="background:rgba(79,124,255,.16);color:var(--brand-2)">🚪</div><div class="v">${c.reached}</div><div class="l">Хүрсэн гэр</div></div>
-    <div class="card stat"><div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">✓</div><div class="v">${c.supporters}</div><div class="l">Бүртгэсэн дэмжигч</div></div>
-    <div class="card stat"><div class="ic" style="background:rgba(169,139,255,.16);color:var(--purple)">📍</div><div class="v">${c.coverage}%</div><div class="l">Хамралт</div></div>
-    <div class="card stat"><div class="ic" style="background:rgba(245,181,74,.16);color:var(--amber)">📋</div><div class="v">${c.surveys}</div><div class="l">Судалгаа</div></div>`;
+    <div class="card stat"><div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">✓</div><div class="v">${c.supporters}</div><div class="l">Бүртгэсэн дэмжигч</div></div>`;
   det.innerHTML=`
     <div class="detail-row"><div class="k">Хариуцсан байршил</div><div class="v">${c.ward||'—'}</div></div>
     <div class="detail-row"><div class="k">Хувиргалт</div><div class="v">${conv}% (дэмжигч / хүрсэн гэр)</div></div>
@@ -1092,13 +1090,11 @@ async function saveKpi(i){
   const c=canvassers[i];
   const vals={
     reached:parseInt(document.getElementById('k-reached').value)||0,
-    supporters:parseInt(document.getElementById('k-sup').value)||0,
-    coverage:parseInt(document.getElementById('k-cover').value)||0,
-    surveys:parseInt(document.getElementById('k-surveys').value)||0
+    supporters:parseInt(document.getElementById('k-sup').value)||0
   };
   const {error}=await db.from('canvassers').update(vals).eq('id',c.id);
   if(error){toast('⚠ Хадгалахад алдаа гарлаа');console.error(error);return;}
-  c.reached=vals.reached;c.sup=vals.supporters;c.cover=vals.coverage;c.surveys=vals.surveys;
+  c.reached=vals.reached;c.sup=vals.supporters;
   renderCanvassers();closeModal('detailModal');toast(c.n+' — КПИ шинэчлэгдлээ');
 }
 
@@ -1645,9 +1641,8 @@ function renderCanvassers(){
       <td>${c.w}</td>
       <td><div class="perf-cell"><div class="mini-bar"><i style="width:${c.reached/maxR*100}%"></i></div><b>${c.reached}</b></div></td>
       <td><div class="perf-cell"><div class="mini-bar"><i style="width:${c.sup/maxS*100}%;background:var(--green)"></i></div><b>${c.sup}</b></div></td>
-      <td><span class="tag ${c.cover>=70?'t-green':c.cover>=55?'t-amber':'t-gray'}">${c.cover}%</span></td>
-      <td>${c.surveys}</td>
-      <td>${c.online?'<span class="online"></span> Онлайн':'<span class="offline"></span> Офлайн'}</td>
+      <td><span class="tag ${(c.reached>0&&c.sup/c.reached>=.6)?'t-green':(c.reached>0&&c.sup/c.reached>=.4)?'t-amber':'t-gray'}">${c.reached>0?Math.round(c.sup/c.reached*100):0}%</span></td>
+      <td>${c.online?'<span class="online"></span> Идэвхтэй':'<span class="offline"></span> Идэвхгүй'}</td>
     </tr>`;
   }).join('');
 }
@@ -1658,13 +1653,10 @@ function showCanvasser(i){
     <div><b style="font-size:17px">${c.n}</b><div style="font-size:12.5px;color:var(--text-mute)">Ухуулагч · ${c.w}</div></div>
     <div class="x" onclick="closeModal('detailModal')">×</div>`;
   document.getElementById('detailBody').innerHTML=`
-    <div style="margin-bottom:18px">${c.online?'<span class="tag t-green"><span class="online"></span> Онлайн</span>':'<span class="tag t-gray">Офлайн</span>'}
-      <span class="tag t-blue" style="margin-left:6px">Хамралт ${c.cover}%</span></div>
+    <div style="margin-bottom:18px">${c.online?'<span class="tag t-green"><span class="online"></span> Идэвхтэй</span>':'<span class="tag t-gray">Идэвхгүй</span>'}</div>
     <div class="kpi-row" style="grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px">
       <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.reached}</div><div class="l">Хүрсэн гэр</div></div>
       <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px;color:var(--green)">${c.sup}</div><div class="l">Бүртгэсэн дэмжигч</div></div>
-      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.reached>0?(c.sup/c.reached*100).toFixed(0):0}%</div><div class="l">Хувиргалт (conversion)</div></div>
-      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.surveys}</div><div class="l">Цуглуулсан судалгаа</div></div>
     </div>
     <div class="detail-row"><div class="k">Хариуцсан байршил</div><div class="v">${c.w}</div></div>
     ${c.email?`<div class="detail-row"><div class="k">Нэвтрэх и-мэйл</div><div class="v">${c.email}</div></div>`:''}
@@ -1672,12 +1664,8 @@ function showCanvasser(i){
     <div style="margin-top:18px;padding:14px;background:var(--bg-2);border-radius:11px;border:1px solid var(--border)">
       <div style="font-size:12.5px;font-weight:600;color:var(--text-dim);margin-bottom:10px">КПИ шинэчлэх</div>
       <div class="row" style="gap:10px">
-        <div class="field" style="flex:1;min-width:110px;margin-bottom:10px"><label>Хүрсэн гэр</label><input id="k-reached" type="number" value="${c.reached}"></div>
-        <div class="field" style="flex:1;min-width:110px;margin-bottom:10px"><label>Дэмжигч</label><input id="k-sup" type="number" value="${c.sup}"></div>
-      </div>
-      <div class="row" style="gap:10px">
-        <div class="field" style="flex:1;min-width:110px"><label>Хамралт %</label><input id="k-cover" type="number" value="${c.cover}"></div>
-        <div class="field" style="flex:1;min-width:110px"><label>Судалгаа</label><input id="k-surveys" type="number" value="${c.surveys}"></div>
+        <div class="field" style="flex:1;min-width:110px"><label>Хүрсэн гэр</label><input id="k-reached" type="number" value="${c.reached}"></div>
+        <div class="field" style="flex:1;min-width:110px"><label>Бүртгэсэн дэмжигч</label><input id="k-sup" type="number" value="${c.sup}"></div>
       </div>
       <button class="btn" style="width:100%" onclick="saveKpi(${i})">Хадгалах</button>
     </div>`:`
