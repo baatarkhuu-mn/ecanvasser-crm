@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eCanvasser CRM — Кампанит ажлын платформ</title>
+<style>
+:root{
+  --bg:#eaf1fc;
+  --bg-2:#e2ecfa;
+  --surface:#ffffff;
+  --surface-2:#f1f6fe;
+  --border:#d7e3f5;
+  --text:#152441;
+  --text-dim:#4f6488;
+  --text-mute:#8398ba;
+  --brand:#2e6bff;
+  --brand-2:#4f86ff;
+  --green:#13b487;
+  --amber:#e8970f;
+  --red:#f0445a;
+  --purple:#7c5cf0;
+  --pink:#ef5fa0;
+  --shadow:0 10px 34px rgba(46,107,255,.12);
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,'Inter',sans-serif;
+  background:linear-gradient(135deg,#eaf1fc 0%,#e6eefb 50%,#eef4ff 100%);
+  color:var(--text);
+  display:flex;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* ---- хөдөлгөөнт дижитал дэвсгэр ---- */
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.blobs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5}
+.blob.b1{width:480px;height:480px;background:radial-gradient(circle,#7ea8ff,transparent 70%);top:-120px;left:8%;animation:float1 22s ease-in-out infinite}
+.blob.b2{width:420px;height:420px;background:radial-gradient(circle,#a9c6ff,transparent 70%);bottom:-140px;right:6%;animation:float2 26s ease-in-out infinite}
+.blob.b3{width:360px;height:360px;background:radial-gradient(circle,#bfe0ff,transparent 70%);top:40%;left:42%;animation:float3 30s ease-in-out infinite}
+@keyframes float1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,80px) scale(1.15)}}
+@keyframes float2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-70px,-50px) scale(1.1)}}
+@keyframes float3{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-50px,40px) scale(1.12)}66%{transform:translate(40px,-30px) scale(.95)}}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{
+  width:248px;min-width:248px;height:100vh;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(14px);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  padding:18px 14px;
+  position:relative;z-index:3;
+}
+.logo{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.logo-banner{background:linear-gradient(135deg,#2e6bff,#6d5cf0);border-radius:13px;padding:12px 14px;margin-bottom:6px;box-shadow:0 6px 18px rgba(46,107,255,.3)}
+.logo .mark{
+  width:38px;height:38px;border-radius:11px;
+  background:linear-gradient(135deg,var(--brand),var(--purple));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:18px;color:#fff;box-shadow:0 4px 14px rgba(79,124,255,.4);
+}
+.logo .name{font-weight:700;font-size:16px;letter-spacing:.2px}
+.logo .name small{display:block;font-size:11px;color:var(--text-mute);font-weight:500;margin-top:1px}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-mute);margin:16px 10px 7px;font-weight:700}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:10px;cursor:pointer;
+  color:var(--text-dim);font-size:14px;font-weight:500;
+  transition:.16s;margin-bottom:2px;position:relative;
+}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:linear-gradient(90deg,rgba(46,107,255,.14),rgba(46,107,255,.03));color:var(--brand);font-weight:700}
+.nav-item.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--brand)}
+.nav-item .ic{width:20px;text-align:center;font-size:16px}
+.nav-item .badge{margin-left:auto;background:var(--brand);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px}
+.sidebar .spacer{flex:1}
+.user-card{
+  display:flex;align-items:center;gap:10px;padding:10px;border-radius:11px;
+  background:var(--surface);border:1px solid var(--border);
+}
+.user-card .ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--brand));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.user-card .meta{font-size:13px;font-weight:600;line-height:1.2}
+.user-card .meta small{display:block;color:var(--text-mute);font-size:11px;font-weight:500}
+
+/* ---------- MAIN ---------- */
+.main{flex:1;height:100vh;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1;background:transparent}
+.topbar{
+  height:64px;min-height:64px;display:flex;align-items:center;gap:16px;
+  padding:0 26px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.7);backdrop-filter:blur(10px);
+}
+.topbar h1{font-size:19px;font-weight:700}
+.topbar h1 small{display:block;font-size:12px;color:var(--text-mute);font-weight:500;margin-top:1px}
+.search{
+  margin-left:auto;display:flex;align-items:center;gap:9px;
+  background:var(--surface);border:1px solid var(--border);
+  padding:8px 14px;border-radius:10px;width:280px;color:var(--text-dim);
+}
+.search input{background:none;border:none;outline:none;color:var(--text);font-size:13.5px;width:100%}
+.search input::placeholder{color:var(--text-mute)}
+.icon-btn{
+  width:40px;height:40px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text-dim);display:flex;align-items:center;
+  justify-content:center;cursor:pointer;font-size:17px;position:relative;transition:.16s;
+}
+.icon-btn:hover{color:#fff;border-color:var(--brand)}
+.icon-btn .dot{position:absolute;top:8px;right:9px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--surface)}
+.content{flex:1;overflow-y:auto;padding:26px}
+.page{display:none;animation:fade .35s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* картны нэвтрэлтийн staggered анимаци */
+.page.active .card{animation:rise .55s cubic-bezier(.2,.8,.3,1) both}
+.page.active .stats .card:nth-child(1){animation-delay:.04s}
+.page.active .stats .card:nth-child(2){animation-delay:.10s}
+.page.active .stats .card:nth-child(3){animation-delay:.16s}
+.page.active .stats .card:nth-child(4){animation-delay:.22s}
+.page.active .kpi-row .card:nth-child(1){animation-delay:.04s}
+.page.active .kpi-row .card:nth-child(2){animation-delay:.10s}
+.page.active .kpi-row .card:nth-child(3){animation-delay:.16s}
+.page.active .kpi-row .card:nth-child(4){animation-delay:.22s}
+@keyframes rise{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+/* картны hover хөдөлгөөн */
+.card{transition:transform .25s cubic-bezier(.2,.8,.3,1),box-shadow .25s}
+.stat:hover,.panel:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(46,107,255,.16)}
+/* gloss/гялбаа brand товчин дээр */
+.btn{position:relative;overflow:hidden}
+.btn::after{content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);transition:.1s}
+.btn:hover::after{animation:sheen .8s ease}
+@keyframes sheen{from{left:-120%}to{left:140%}}
+/* progress shimmer */
+.progress-line i,.support-bar i,.mini-bar i{position:relative;overflow:hidden}
+.progress-line i::after,.mini-bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-100%);animation:shimmer 2.4s infinite}
+@keyframes shimmer{to{transform:translateX(200%)}}
+/* tracking тоонуудын гялбаа */
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(19,180,135,.35)}50%{box-shadow:0 0 0 5px rgba(19,180,135,0)}}
+.online{animation:pulseGlow 2s infinite}
+
+/* ---------- COMMON ---------- */
+.row{display:flex;gap:18px;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.section-title{font-size:15px;font-weight:700;margin-bottom:2px}
+.section-sub{font-size:12.5px;color:var(--text-mute);margin-bottom:16px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--brand);color:#fff;border:none;border-radius:10px;
+  padding:9px 16px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.16s;
+}
+.btn:hover{background:var(--brand-2);transform:translateY(-1px)}
+.btn.ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.btn.ghost:hover{border-color:var(--brand);background:var(--surface)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px}
+.t-green{background:rgba(19,180,135,.13);color:#0e8e6a}
+.t-amber{background:rgba(232,151,15,.14);color:#b3760b}
+.t-red{background:rgba(240,68,90,.12);color:#d62f45}
+.t-blue{background:rgba(46,107,255,.13);color:#2e6bff}
+.t-purple{background:rgba(124,92,240,.13);color:#6b48e0}
+.t-gray{background:rgba(131,152,186,.16);color:#5b6f90}
+
+/* ---------- STAT CARDS ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px}
+.stat{padding:18px 20px;position:relative;overflow:hidden}
+.stat .ic{
+  width:42px;height:42px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;margin-bottom:14px;
+}
+.stat .v{font-size:28px;font-weight:800;line-height:1}
+.stat .l{font-size:13px;color:var(--text-dim);margin-top:6px}
+.stat .trend{position:absolute;top:18px;right:18px;font-size:12px;font-weight:700}
+.up{color:var(--green)}.down{color:var(--red)}
+
+/* ---------- DASHBOARD GRID ---------- */
+.grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:18px}
+.panel{padding:20px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.panel-head h3{font-size:15px;font-weight:700}
+.bars{display:flex;align-items:flex-end;gap:14px;height:180px;padding-top:10px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+.bar{width:100%;max-width:40px;border-radius:7px 7px 0 0;background:linear-gradient(180deg,var(--brand),rgba(79,124,255,.35));transition:.3s;position:relative}
+.bar:hover{filter:brightness(1.15)}
+.bar-col small{font-size:11px;color:var(--text-mute)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--text-dim);margin-top:14px}
+.legend span{display:flex;align-items:center;gap:6px}
+.dot-l{width:10px;height:10px;border-radius:3px}
+
+/* donut */
+.donut-wrap{display:flex;align-items:center;gap:24px}
+.donut{width:150px;height:150px;border-radius:50%;position:relative;flex-shrink:0}
+.donut::after{content:"";position:absolute;inset:26px;background:var(--surface);border-radius:50%}
+.donut .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.donut .center b{font-size:24px;font-weight:800}
+.donut .center small{font-size:11px;color:var(--text-mute)}
+.donut-legend{flex:1}
+.dl-item{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.dl-item:last-child{border:none}
+.dl-item .val{margin-left:auto;font-weight:700}
+
+/* activity */
+.activity-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border:none}
+.activity-item .av{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.activity-item .txt{font-size:13px;line-height:1.45}
+.activity-item .txt b{font-weight:700}
+.activity-item .txt small{display:block;color:var(--text-mute);font-size:11.5px;margin-top:2px}
+
+/* ---------- TABLE ---------- */
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface);border:1px solid var(--border);color:var(--text-dim);transition:.16s}
+.chip:hover{color:#fff}
+.chip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+table{width:100%;border-collapse:collapse}
+thead th{
+  text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--text-mute);font-weight:700;padding:13px 16px;border-bottom:1px solid var(--border);
+}
+tbody td{padding:13px 16px;font-size:13.5px;border-bottom:1px solid var(--border)}
+tbody tr{cursor:pointer;transition:.12s}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:none}
+.person{display:flex;align-items:center;gap:11px}
+.person .av{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0}
+.person .nm{font-weight:600}
+.person .nm small{display:block;color:var(--text-mute);font-size:11.5px;font-weight:500}
+.support-bar{width:90px;height:7px;border-radius:6px;background:var(--border);overflow:hidden}
+.support-bar i{display:block;height:100%;border-radius:6px}
+
+/* ---------- MAP ---------- */
+.map-layout{display:grid;grid-template-columns:300px 1fr;gap:18px;height:calc(100vh - 64px - 52px)}
+.map-side{padding:18px;overflow-y:auto}
+.map-stage{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#e9edf2;min-height:520px}
+.map-svg{width:100%;height:100%;display:block}
+.map-zoom{position:absolute;top:16px;right:16px;display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.25)}
+.map-zoom button{width:38px;height:38px;background:#fff;border:none;color:#3a4254;font-size:19px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s}
+.map-zoom button:hover{background:#f0f2f6}
+.map-eta{position:absolute;top:16px;left:16px;background:#fff;border-radius:12px;padding:13px 18px;box-shadow:0 4px 16px rgba(0,0,0,.2);color:#1a2030}
+.map-eta .big{font-size:22px;font-weight:800;color:#1a73e8}
+.map-eta .sub{font-size:12px;color:#5f6b7e;margin-top:2px}
+.map-tooltip{z-index:20}
+/* route detail panel */
+.rd-back{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--brand-2);cursor:pointer;margin-bottom:14px}
+.rd-head{padding:14px;border-radius:12px;background:var(--surface-2);margin-bottom:14px}
+.rd-head h3{font-size:15px;font-weight:700;margin-bottom:8px}
+.rd-stats{display:flex;gap:14px;font-size:12px;color:var(--text-dim)}
+.rd-stats b{color:var(--text);font-size:15px;display:block}
+.stop{display:flex;gap:12px;padding:11px 0;position:relative}
+.stop:not(:last-child)::before{content:"";position:absolute;left:13px;top:30px;bottom:-11px;width:2px;background:var(--border)}
+.stop .sdot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;z-index:1}
+.stop .sinfo{font-size:13px;font-weight:600}
+.stop .sinfo small{display:block;color:var(--text-mute);font-size:11.5px;font-weight:500;margin-top:1px}
+.route-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:11px;background:var(--surface-2);margin-bottom:10px;cursor:pointer;border:1px solid transparent;transition:.16s}
+.route-item:hover{border-color:var(--brand)}
+.route-item .pin{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.route-item .info{font-size:13px;font-weight:600}
+.route-item .info small{display:block;color:var(--text-mute);font-size:11.5px;font-weight:500}
+.map-legend{position:absolute;bottom:16px;left:16px;background:rgba(20,26,40,.92);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:11px;padding:12px 16px;font-size:12.5px}
+.map-legend .ml{display:flex;align-items:center;gap:8px;padding:3px 0}
+.map-legend .mc{width:11px;height:11px;border-radius:50%}
+.house{cursor:pointer;transition:.2s}
+.house:hover{transform:translateY(-2px)}
+.map-tooltip{position:absolute;background:#fff;color:#1a2030;padding:9px 13px;border-radius:9px;font-size:12.5px;pointer-events:none;opacity:0;transition:.15s;box-shadow:0 6px 20px rgba(0,0,0,.4);z-index:10;font-weight:600;white-space:nowrap}
+.map-tooltip small{display:block;color:#6b7796;font-weight:500;margin-top:1px}
+
+/* ---------- SURVEYS ---------- */
+.survey-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.survey-card{padding:20px;cursor:pointer;transition:.2s;border:1px solid var(--border)}
+.survey-card:hover{border-color:var(--brand);transform:translateY(-3px)}
+.survey-card .top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.survey-card .qic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.survey-card h4{font-size:15.5px;font-weight:700;margin-bottom:6px}
+.survey-card p{font-size:12.5px;color:var(--text-mute);line-height:1.5;margin-bottom:16px}
+.survey-meta{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-dim);padding-top:14px;border-top:1px solid var(--border)}
+.progress-line{height:6px;border-radius:6px;background:var(--border);overflow:hidden;margin:12px 0}
+.progress-line i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--brand))}
+
+/* ---------- ISSUES ---------- */
+.issue-board{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.issue-col{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.issue-col-head{display:flex;align-items:center;gap:9px;margin-bottom:14px;font-size:13.5px;font-weight:700}
+.issue-col-head .cnt{margin-left:auto;background:var(--surface);padding:1px 9px;border-radius:20px;font-size:12px;color:var(--text-dim)}
+.issue{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:11px;cursor:pointer;transition:.16s}
+.issue:hover{border-color:var(--brand);transform:translateX(2px)}
+.issue h5{font-size:13.5px;font-weight:600;margin-bottom:8px;line-height:1.35}
+.issue .ifoot{display:flex;align-items:center;justify-content:space-between;margin-top:11px;font-size:11.5px;color:var(--text-mute)}
+.issue .loc{display:flex;align-items:center;gap:5px}
+
+/* ---------- MODAL ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(8,11,18,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.open{display:flex;animation:fade .25s}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;width:480px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:pop .3s}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-head{padding:22px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.modal-head .x{margin-left:auto;cursor:pointer;color:var(--text-mute);font-size:22px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.modal-head .x:hover{background:var(--surface-2);color:#fff}
+.modal-body{padding:22px 24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--text-dim);margin-bottom:7px}
+.field input,.field select,.field textarea{
+  width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;
+  padding:11px 13px;color:var(--text);font-size:13.5px;font-family:inherit;outline:none;transition:.16s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand)}
+.detail-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.detail-row:last-child{border:none}
+.detail-row .k{color:var(--text-mute);width:120px;flex-shrink:0;font-size:12.5px}
+.detail-row .v{font-weight:600}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#06231b;padding:14px 20px;border-radius:12px;font-weight:600;font-size:13.5px;box-shadow:var(--shadow);transform:translateY(120px);transition:.35s cubic-bezier(.2,1.2,.4,1);z-index:200;display:flex;align-items:center;gap:9px}
+.toast.show{transform:none}
+
+/* ---------- LOGIN ---------- */
+.login-overlay{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(135deg,rgba(232,240,253,.78),rgba(234,241,252,.7) 50%,rgba(240,245,255,.78));backdrop-filter:blur(2px);transition:opacity .5s,visibility .5s}
+.login-overlay.hide{opacity:0;visibility:hidden}
+.login-card{position:relative;z-index:2;width:420px;max-width:100%;background:rgba(255,255,255,.9);backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:22px;padding:30px 30px 26px;box-shadow:0 24px 60px rgba(46,107,255,.2);
+  animation:rise .6s cubic-bezier(.2,.8,.3,1) both}
+.login-logo{background:linear-gradient(135deg,#2e6bff,#6d5cf0);border-radius:14px;padding:14px 16px;box-shadow:0 8px 22px rgba(46,107,255,.35);margin-bottom:20px}
+.login-logo img{width:100%;height:auto;display:block}
+.login-card h2{font-size:20px;font-weight:800;text-align:center;margin-bottom:4px}
+.login-card .sub{font-size:13px;color:var(--text-mute);text-align:center;margin-bottom:22px}
+.login-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.login-role{border:1.5px solid var(--border);border-radius:13px;padding:14px;text-align:center;cursor:pointer;transition:.18s;background:var(--surface)}
+.login-role:hover{border-color:var(--brand-2)}
+.login-role.sel{border-color:var(--brand);background:linear-gradient(135deg,rgba(46,107,255,.08),rgba(109,92,240,.05));box-shadow:0 6px 16px rgba(46,107,255,.14)}
+.login-role .ri{font-size:24px;margin-bottom:6px}
+.login-role b{font-size:14px;display:block}
+.login-role small{font-size:11px;color:var(--text-mute)}
+.login-hint{font-size:11.5px;color:var(--text-mute);text-align:center;margin-top:14px}
+.login-hint b{color:var(--brand)}
+
+/* ---------- AI ADVICE ---------- */
+.ai-card{margin-top:18px;padding:16px;border-radius:13px;background:linear-gradient(135deg,rgba(46,107,255,.07),rgba(124,92,240,.05));border:1px solid rgba(46,107,255,.25)}
+.ai-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.ai-badge{font-size:13.5px;font-weight:800;background:linear-gradient(135deg,#2e6bff,#7c5cf0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ai-thinking{font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:8px;padding:6px 0}
+.ai-dots{display:inline-flex;gap:4px}
+.ai-dots i{width:6px;height:6px;border-radius:50%;background:var(--brand);animation:aidot 1s infinite}
+.ai-dots i:nth-child(2){animation-delay:.15s}.ai-dots i:nth-child(3){animation-delay:.3s}
+@keyframes aidot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.ai-sum{font-size:13px;line-height:1.5;margin:2px 0 10px;animation:fade .4s}
+.ai-sec{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-mute);margin:11px 0 7px}
+.ai-step{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.42;margin-bottom:7px;animation:fade .4s}
+.ai-step span{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#2e6bff,#7c5cf0);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.ai-msg{font-size:12.5px;font-style:italic;color:var(--text-dim);background:var(--surface-2);border-radius:9px;padding:10px 12px;line-height:1.5;animation:fade .4s}
+.ai-line{margin-bottom:8px}
+
+/* ---------- ROLE SWITCH ---------- */
+.role-switch{display:flex;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px}
+.role-switch button{background:none;border:none;color:var(--text-dim);font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;font-family:inherit;transition:.16s}
+.role-switch button.active{background:var(--brand);color:#fff}
+.role-banner{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:12px;background:linear-gradient(90deg,rgba(45,212,167,.14),rgba(45,212,167,.03));border:1px solid rgba(45,212,167,.25);margin-bottom:20px;font-size:13px}
+.role-banner .rb-ic{width:36px;height:36px;border-radius:10px;background:rgba(45,212,167,.18);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.role-banner b{color:var(--green)}
+
+/* ---------- CANVASSERS / LEADERBOARD ---------- */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px}
+.lb-rank{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.lb-1{background:linear-gradient(135deg,#f5b54a,#ffd98a);color:#3a2800}
+.lb-2{background:linear-gradient(135deg,#9aa6bf,#cfd6e6);color:#1a2030}
+.lb-3{background:linear-gradient(135deg,#c98a4a,#e6b988);color:#2a1700}
+.lb-n{background:var(--surface-2);color:var(--text-dim)}
+.online{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(45,212,167,.2);display:inline-block}
+.offline{width:9px;height:9px;border-radius:50%;background:var(--text-mute);display:inline-block}
+.perf-cell{display:flex;align-items:center;gap:8px}
+.mini-bar{width:64px;height:6px;border-radius:6px;background:var(--border);overflow:hidden}
+.mini-bar i{display:block;height:100%;border-radius:6px;background:var(--brand)}
+
+/* ---------- IMPORT ---------- */
+.dropzone{border:2px dashed var(--border);border-radius:16px;padding:44px;text-align:center;background:var(--bg-2);transition:.2s;cursor:pointer}
+.dropzone:hover{border-color:var(--brand);background:var(--surface)}
+.dropzone .dz-ic{font-size:42px;margin-bottom:12px}
+.dropzone h3{font-size:16px;margin-bottom:6px}
+.dropzone p{font-size:13px;color:var(--text-mute)}
+.steps{display:flex;gap:8px;margin:22px 0}
+.step{flex:1;text-align:center;padding:14px;border-radius:12px;background:var(--surface);border:1px solid var(--border);font-size:12.5px;position:relative}
+.step .num{width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--text-dim);display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 8px;font-size:13px}
+.step.done .num{background:var(--green);color:#06231b}
+.step.active .num{background:var(--brand);color:#fff}
+.step.active{border-color:var(--brand)}
+.map-cell{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.map-cell:last-child{border:none}
+.map-cell .src{flex:1;font-weight:600}
+.map-cell .arrow{color:var(--text-mute)}
+.map-cell select{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12.5px;width:170px}
+
+@media(max-width:1100px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid-2{grid-template-columns:1fr}
+  .survey-grid,.issue-board{grid-template-columns:1fr}
+  .map-layout{grid-template-columns:1fr;height:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- хөдөлгөөнт дижитал дэвсгэр -->
+<canvas id="bgCanvas"></canvas>
+<div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<!-- НЭВТРЭХ ЦОНХ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo"><img src="data:image/png;base64,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" alt="Logo"></div>
+    <h2>Тавтай морил</h2>
+    <div class="sub">Кампанит ажлын CRM платформд нэвтэрнэ үү</div>
+    <div class="login-roles">
+      <div class="login-role sel" data-role="admin" onclick="pickLoginRole('admin')">
+        <div class="ri">🛡️</div><b>Админ</b><small>Кампанит менежер</small>
+      </div>
+      <div class="login-role" data-role="agent" onclick="pickLoginRole('agent')">
+        <div class="ri">📣</div><b>Ухуулагч</b><small>Талбарын хэрэглэгч</small>
+      </div>
+    </div>
+    <div class="field"><label>Утас / нэвтрэх нэр</label><input id="lg-user" value="9911-0000" autocomplete="off"></div>
+    <div class="field" id="lg-passField"><label>Нууц үг</label><input id="lg-pass" type="password" value="••••••"></div>
+    <button class="btn" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Нэвтрэх →</button>
+    <div class="login-hint" id="lg-hint">Демо горим — <b>дурын утгаар</b> нэвтэрч болно</div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo-banner">
+    <img src="data:image/png;base64,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" alt="Logo" style="width:100%;height:auto;display:block">
+  </div>
+
+  <div class="nav-label">Үндсэн</div>
+  <div class="nav-item active" data-page="dashboard"><span class="ic">▦</span> Хяналтын самбар</div>
+  <div class="nav-item" data-page="contacts"><span class="ic">👥</span> Сонгогчид <span class="badge">12.4к</span></div>
+  <div class="nav-item" data-page="canvassers"><span class="ic">📣</span> Ухуулагчид <span class="badge">38</span></div>
+  <div class="nav-item" data-page="map"><span class="ic">🗺</span> Канвассинг</div>
+
+  <div class="nav-label">Оролцоо</div>
+  <div class="nav-item" data-page="surveys"><span class="ic">📋</span> Судалгаа</div>
+  <div class="nav-item" data-page="segments"><span class="ic">📊</span> Сегментчлэл</div>
+  <div class="nav-item" data-page="issues"><span class="ic">⚑</span> Асуудал <span class="badge">7</span></div>
+
+  <div class="nav-label">Өгөгдөл</div>
+  <div class="nav-item" data-page="import"><span class="ic">⤓</span> Дата оруулах</div>
+  <div class="nav-item" data-page="teams"><span class="ic">⚙</span> Баг & тохиргоо</div>
+
+  <div class="spacer"></div>
+  <div class="user-card" onclick="logout()" style="cursor:pointer" title="Гарах">
+    <div class="ava" id="roleAva">А</div>
+    <div class="meta" id="roleMeta">Азура<small>Админ · Кампанит менежер</small></div>
+    <div style="margin-left:auto;color:var(--text-mute);font-size:16px">⏻</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <h1 id="pageTitle">Хяналтын самбар<small id="pageSub">Кампанит ажлын ерөнхий тойм</small></h1>
+    <div class="search">
+      <span>🔍</span><input placeholder="Сонгогч, хаяг, асуудал хайх…">
+    </div>
+    <div class="role-switch" id="roleSwitch">
+      <button class="active" data-role="admin" onclick="setRole('admin')">Админ</button>
+      <button data-role="agent" onclick="setRole('agent')">Ухуулагч</button>
+    </div>
+    <div class="icon-btn">🔔<span class="dot"></span></div>
+    <div class="icon-btn" onclick="openAdd()">＋</div>
+  </div>
+
+  <div class="content">
+
+  <!-- ============ DASHBOARD ============ -->
+  <div class="page active" id="dashboard">
+    <div class="stats">
+      <div class="card stat">
+        <div class="ic" style="background:rgba(79,124,255,.16);color:var(--brand-2)">👥</div>
+        <div class="trend up">▲ 8.2%</div>
+        <div class="v">12,438</div>
+        <div class="l">Бүртгэлтэй сонгогч</div>
+      </div>
+      <div class="card stat">
+        <div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">🚪</div>
+        <div class="trend up">▲ 12.4%</div>
+        <div class="v">3,217</div>
+        <div class="l">Энэ долоо хоногийн хүрсэн гэр</div>
+      </div>
+      <div class="card stat">
+        <div class="ic" style="background:rgba(169,139,255,.16);color:var(--purple)">📋</div>
+        <div class="trend up">▲ 5.1%</div>
+        <div class="v">1,892</div>
+        <div class="l">Судалгааны хариу</div>
+      </div>
+      <div class="card stat">
+        <div class="ic" style="background:rgba(245,181,74,.16);color:var(--amber)">⚑</div>
+        <div class="trend down">▼ 2.0%</div>
+        <div class="v">74%</div>
+        <div class="l">Дэмжлэгийн дундаж</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- weekly canvassing -->
+      <div class="card panel">
+        <div class="panel-head">
+          <h3>7 хоногийн канвассинг идэвх</h3>
+          <button class="btn ghost" style="padding:6px 12px;font-size:12px">7 хоног ▾</button>
+        </div>
+        <div class="bars" id="weekBars"></div>
+        <div class="legend">
+          <span><i class="dot-l" style="background:var(--brand)"></i> Хүрсэн гэр</span>
+          <span><i class="dot-l" style="background:var(--green)"></i> Эерэг хариу</span>
+        </div>
+      </div>
+
+      <!-- support donut -->
+      <div class="card panel">
+        <div class="panel-head"><h3>Сонгогчдын байр суурь</h3></div>
+        <div class="donut-wrap">
+          <div class="donut" id="donut">
+            <div class="center"><b>74%</b><small>Дэмжлэг</small></div>
+          </div>
+          <div class="donut-legend">
+            <div class="dl-item"><i class="dot-l" style="background:var(--green)"></i> Дэмжигч <span class="val">52%</span></div>
+            <div class="dl-item"><i class="dot-l" style="background:var(--brand)"></i> Тэнцсэн <span class="val">22%</span></div>
+            <div class="dl-item"><i class="dot-l" style="background:var(--amber)"></i> Эргэлзэж буй <span class="val">16%</span></div>
+            <div class="dl-item"><i class="dot-l" style="background:var(--red)"></i> Эсрэг <span class="val">10%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- top issues -->
+      <div class="card panel">
+        <div class="panel-head"><h3>Тэргүүлэх асуудлууд</h3><span style="font-size:12px;color:var(--text-mute)">Хороогоор</span></div>
+        <div id="issueBars"></div>
+      </div>
+      <!-- recent activity -->
+      <div class="card panel">
+        <div class="panel-head"><h3>Сүүлийн үйл явдал</h3></div>
+        <div id="activityFeed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONTACTS ============ -->
+  <div class="page" id="contacts">
+    <div class="toolbar">
+      <div class="chips" id="contactChips">
+        <div class="chip active" data-f="all">Бүгд</div>
+        <div class="chip" data-f="Дэмжигч">Дэмжигч</div>
+        <div class="chip" data-f="Тэнцсэн">Тэнцсэн</div>
+        <div class="chip" data-f="Эргэлзэж буй">Эргэлзэж буй</div>
+        <div class="chip" data-f="Эсрэг">Эсрэг</div>
+      </div>
+      <button class="btn" style="margin-left:auto" onclick="openAdd()">＋ Сонгогч нэмэх</button>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <table>
+        <thead><tr>
+          <th>Нэр</th><th>Хороо</th><th>Холбоо</th><th>Байр суурь</th><th>Дэмжлэг</th><th>Сүүлд холбогдсон</th>
+        </tr></thead>
+        <tbody id="contactBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ MAP / CANVASSING ============ -->
+  <div class="page" id="map">
+    <div class="map-layout">
+      <div class="card map-side">
+        <!-- routes list -->
+        <div id="routePanel">
+          <div class="section-title">Идэвхтэй маршрутууд</div>
+          <div class="section-sub">Маршрут сонгож дэлгэрэнгүйг харна уу</div>
+          <div id="routeList"></div>
+          <button class="btn ghost" style="width:100%;margin-top:6px">＋ Шинэ маршрут</button>
+        </div>
+        <!-- route detail (turn-by-turn) -->
+        <div id="routeDetail" style="display:none"></div>
+      </div>
+      <div class="map-stage" id="mapStage">
+        <svg class="map-svg" id="mapSvg" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="map-tooltip" id="mapTip"></div>
+        <div class="map-zoom">
+          <button onclick="toast('Томруулах')">+</button>
+          <button onclick="toast('Жижигрүүлэх')">−</button>
+          <button onclick="toast('Байршил руу')" title="Миний байршил">◎</button>
+        </div>
+        <div class="map-eta" id="mapEta" style="display:none"></div>
+        <div class="map-legend">
+          <div style="font-weight:700;margin-bottom:6px;font-size:12px">Гэрийн статус</div>
+          <div class="ml"><span class="mc" style="background:#2dd4a7"></span> Дэмжигч</div>
+          <div class="ml"><span class="mc" style="background:#f5b54a"></span> Эргэлзэж буй</div>
+          <div class="ml"><span class="mc" style="background:#ff6b7a"></span> Эсрэг</div>
+          <div class="ml"><span class="mc" style="background:#4f7cff"></span> Хариу аваагүй</div>
+          <div class="ml"><span class="mc" style="background:#9aa3b2"></span> Очоогүй</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SURVEYS ============ -->
+  <div class="page" id="surveys">
+    <div class="toolbar">
+      <div>
+        <div class="section-title">Судалгаа & санал асуулга</div>
+        <div class="section-sub" style="margin-bottom:0">Идэвхтэй 4 судалгаа · нийт 1,892 хариу</div>
+      </div>
+      <button class="btn" style="margin-left:auto" onclick="openSurveyModal()">＋ Судалгаа үүсгэх</button>
+    </div>
+    <div class="survey-grid" id="surveyGrid"></div>
+  </div>
+
+  <!-- ============ SEGMENTS / СЕГМЕНТЧЛЭЛ ============ -->
+  <div class="page" id="segments">
+    <div class="toolbar">
+      <div><div class="section-title">Оролцогчдын сегментчлэл</div>
+      <div class="section-sub" style="margin-bottom:0">Судалгаа сонгож, хариулсан оролцогчдыг бүлэглэн шинжилнэ</div></div>
+      <select id="segSurvey" onchange="renderSegments()" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 13px;color:var(--text);font-size:13.5px"></select>
+    </div>
+    <div class="kpi-row" id="segKpi"></div>
+    <div class="grid-2">
+      <div class="card panel">
+        <div class="panel-head"><h3>Хороогоор</h3><span style="font-size:12px;color:var(--text-mute)">Оролцогчийн тоо</span></div>
+        <div id="segWard"></div>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Насны бүлэг</h3></div>
+        <div id="segAge"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card panel">
+        <div class="panel-head"><h3>Хүйс</h3></div>
+        <div class="donut-wrap"><div class="donut" id="segGenderDonut"><div class="center"><b id="segGTotal">0</b><small>оролцогч</small></div></div>
+          <div class="donut-legend" id="segGenderLeg"></div></div>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Байр суурь</h3></div>
+        <div id="segStance"></div>
+      </div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Гол асуултын хариу — сегментээр</h3>
+        <div class="chips" id="segCrossChips">
+          <div class="chip active" data-x="ward">Хороогоор</div>
+          <div class="chip" data-x="age">Насаар</div>
+          <div class="chip" data-x="gender">Хүйсээр</div>
+        </div>
+      </div>
+      <div id="segCross"></div>
+      <div class="legend" style="margin-top:14px">
+        <span><i class="dot-l" style="background:#2dd4a7"></i> Дэмжинэ</span>
+        <span><i class="dot-l" style="background:#f5b54a"></i> Эргэлзэж буй</span>
+        <span><i class="dot-l" style="background:#ff6b7a"></i> Эсрэг</span>
+      </div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Оролцогчдын жагсаалт</h3><span style="font-size:12px;color:var(--text-mute)" id="segRespCount"></span></div>
+      <div style="overflow:hidden"><table>
+        <thead><tr><th>Оролцогч</th><th>Хороо</th><th>Нас</th><th>Хүйс</th><th>Байр суурь</th><th>Огноо</th></tr></thead>
+        <tbody id="segRespBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- ============ ISSUES ============ -->
+  <div class="page" id="issues">
+    <div class="toolbar">
+      <div>
+        <div class="section-title">Сонгогчдын асуудал</div>
+        <div class="section-sub" style="margin-bottom:0">Иргэдээс хүлээн авсан санал, гомдол, асуудал</div>
+      </div>
+      <button class="btn" style="margin-left:auto" onclick="toast('Шинэ асуудал бүртгэх цонх')">＋ Асуудал бүртгэх</button>
+    </div>
+    <div class="issue-board">
+      <div class="issue-col">
+        <div class="issue-col-head"><span class="dot-l" style="background:var(--red);width:9px;height:9px;border-radius:50%"></span> Шинэ <span class="cnt" id="c-new">0</span></div>
+        <div id="col-new"></div>
+      </div>
+      <div class="issue-col">
+        <div class="issue-col-head"><span class="dot-l" style="background:var(--amber);width:9px;height:9px;border-radius:50%"></span> Шийдвэрлэж буй <span class="cnt" id="c-prog">0</span></div>
+        <div id="col-prog"></div>
+      </div>
+      <div class="issue-col">
+        <div class="issue-col-head"><span class="dot-l" style="background:var(--green);width:9px;height:9px;border-radius:50%"></span> Шийдвэрлэсэн <span class="cnt" id="c-done">0</span></div>
+        <div id="col-done"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CANVASSERS / УХУУЛАГЧ ============ -->
+  <div class="page" id="canvassers">
+    <div class="role-banner">
+      <div class="rb-ic">📣</div>
+      <div>Ухуулагч бол системийн <b>хэрэглэгч</b> — өөрийн нэвтрэх эрхээр орж, хариуцсан байршилдаа сонгогч/дэмжигч бүртгэдэг. Доорх самбар нь админд ухуулагч бүрийн гүйцэтгэлийг харуулна.</div>
+    </div>
+    <div class="kpi-row">
+      <div class="card stat"><div class="ic" style="background:rgba(79,124,255,.16);color:var(--brand-2)">📣</div><div class="v">38</div><div class="l">Идэвхтэй ухуулагч</div></div>
+      <div class="card stat"><div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">🚪</div><div class="v">8,942</div><div class="l">Нийт хүрсэн гэр</div></div>
+      <div class="card stat"><div class="ic" style="background:rgba(169,139,255,.16);color:var(--purple)">✓</div><div class="v">4,617</div><div class="l">Бүртгэсэн дэмжигч</div></div>
+      <div class="card stat"><div class="ic" style="background:rgba(245,181,74,.16);color:var(--amber)">📍</div><div class="v">21</div><div class="l">Хамарсан хороо</div></div>
+    </div>
+    <div class="toolbar">
+      <div><div class="section-title">Ухуулагчдын гүйцэтгэлийн самбар</div>
+      <div class="section-sub" style="margin-bottom:0">Хүрсэн гэр · Бүртгэсэн дэмжигч · Хамралт · Судалгаа гэсэн KPI-аар эрэмбэлсэн</div></div>
+      <button class="btn" style="margin-left:auto" onclick="openAgentModal()">＋ Ухуулагч бүртгэх</button>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Ухуулагч</th><th>Хариуцсан байршил</th><th>Хүрсэн гэр</th><th>Бүртгэсэн дэмжигч</th><th>Хамралт</th><th>Судалгаа</th><th>Статус</th>
+        </tr></thead>
+        <tbody id="canvasserBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ IMPORT / ДАТА ============ -->
+  <div class="page" id="import">
+    <div class="section-title">Дата оруулах & нэгтгэх</div>
+    <div class="section-sub">Өөрийн сонгогчийн жагсаалт (CSV/Excel)-ыг оруулж, системийн баазтай давхардалгүй нэгтгэнэ</div>
+    <div class="steps">
+      <div class="step done"><div class="num">✓</div>Файл сонгох</div>
+      <div class="step active"><div class="num">2</div>Талбар тааруулах</div>
+      <div class="step"><div class="num">3</div>Давхардал шалгах</div>
+      <div class="step"><div class="num">4</div>Нэгтгэх</div>
+    </div>
+    <div class="row" style="align-items:stretch">
+      <div class="card panel" style="flex:1;min-width:300px">
+        <div class="panel-head"><h3>1. Файл оруулах</h3></div>
+        <div class="dropzone" onclick="toast('Файл сонгох цонх (демо)')">
+          <div class="dz-ic">⤓</div>
+          <h3>Файлаа энд чирч оруулна уу</h3>
+          <p>CSV, XLSX, XLS дэмжинэ · дээд тал 50MB</p>
+        </div>
+        <div style="margin-top:16px;display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-2);border-radius:10px;border:1px solid var(--border)">
+          <div style="font-size:22px">📄</div>
+          <div style="flex:1"><b style="font-size:13.5px">songogchid_3r_horoo.xlsx</b><div style="font-size:11.5px;color:var(--text-mute)">2,341 мөр · 8 багана</div></div>
+          <span class="tag t-green">Уншигдсан</span>
+        </div>
+      </div>
+      <div class="card panel" style="flex:1;min-width:300px">
+        <div class="panel-head"><h3>2. Талбар тааруулах</h3></div>
+        <div style="font-size:12px;color:var(--text-mute);margin-bottom:8px">Таны багана → Системийн талбар</div>
+        <div class="map-cell"><span class="src">Овог Нэр</span><span class="arrow">→</span>
+          <select><option>Бүтэн нэр</option><option>Утас</option></select></div>
+        <div class="map-cell"><span class="src">Утасны дугаар</span><span class="arrow">→</span>
+          <select><option>Утас</option><option>Бүтэн нэр</option></select></div>
+        <div class="map-cell"><span class="src">Хороо</span><span class="arrow">→</span>
+          <select><option>Хороо/байршил</option><option>Хаяг</option></select></div>
+        <div class="map-cell"><span class="src">Тэмдэглэл</span><span class="arrow">→</span>
+          <select><option>Байр суурь</option><option>Тэмдэглэл</option><option>Алгасах</option></select></div>
+        <button class="btn" style="width:100%;margin-top:16px" onclick="toast('142 давхардал илрэв — нэгтгэхэд бэлэн')">Давхардал шалгах →</button>
+      </div>
+    </div>
+    <div class="card panel" style="margin-top:18px">
+      <div class="panel-head"><h3>Импортын түүх</h3></div>
+      <table>
+        <thead><tr><th>Файл</th><th>Огноо</th><th>Мөр</th><th>Нэмэгдсэн</th><th>Давхардал</th><th>Статус</th></tr></thead>
+        <tbody>
+          <tr><td>📄 songogchid_1r_horoo.csv</td><td>06-05</td><td>1,820</td><td>1,654</td><td>166</td><td><span class="tag t-green">Амжилттай</span></td></tr>
+          <tr><td>📄 dems_jagsaalt.xlsx</td><td>06-02</td><td>980</td><td>902</td><td>78</td><td><span class="tag t-green">Амжилттай</span></td></tr>
+          <tr><td>📄 utas_baaz.csv</td><td>05-28</td><td>3,400</td><td>3,100</td><td>300</td><td><span class="tag t-green">Амжилттай</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ TEAMS ============ -->
+  <div class="page" id="teams">
+    <div class="section-title">Баг & тохиргоо</div>
+    <div class="section-sub">Сайн дурын ажилтнууд, идэвхжүүлэгчид</div>
+    <div class="card" style="overflow:hidden">
+      <table>
+        <thead><tr><th>Гишүүн</th><th>Үүрэг</th><th>Хүрсэн гэр</th><th>Статус</th></tr></thead>
+        <tbody id="teamBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- MODALS -->
+<div class="modal-bg" id="detailModal">
+  <div class="modal">
+    <div class="modal-head" id="detailHead"></div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="addModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="person"><div class="av" style="background:linear-gradient(135deg,var(--brand),var(--purple))">＋</div></div>
+      <div><b style="font-size:16px">Шинэ сонгогч нэмэх</b><div style="font-size:12px;color:var(--text-mute)">Шинэ контакт бүртгэх</div></div>
+      <div class="x" onclick="closeModal('addModal')">×</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Бүтэн нэр</label><input id="f-name" placeholder="Жишээ: Б. Болормаа"></div>
+      <div class="row"><div class="field" style="flex:1"><label>Хороо</label><input id="f-ward" placeholder="3-р хороо"></div>
+      <div class="field" style="flex:1"><label>Утас</label><input id="f-phone" placeholder="9911-2233"></div></div>
+      <div class="field"><label>Байр суурь</label><select id="f-stance">
+        <option>Дэмжигч</option><option>Тэнцсэн</option><option>Эргэлзэж буй</option><option>Эсрэг</option></select></div>
+      <div class="field"><label>Тэмдэглэл</label><textarea rows="2" placeholder="Уулзалтын тэмдэглэл…"></textarea></div>
+      <button class="btn" style="width:100%" onclick="saveContact()">Хадгалах</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="surveyModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="survey-card" style="padding:0"><div class="qic" style="background:rgba(169,139,255,.16);color:var(--purple)">📋</div></div>
+      <div><b style="font-size:16px">Судалгаа үүсгэх</b><div style="font-size:12px;color:var(--text-mute)">Шинэ санал асуулга</div></div>
+      <div class="x" onclick="closeModal('surveyModal')">×</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Судалгааны нэр</label><input placeholder="Жишээ: Орон сууцны асуудлын судалгаа"></div>
+      <div class="field"><label>Төрөл</label><select><option>Олон сонголттой</option><option>Тийм/Үгүй</option><option>Үнэлгээ (1–5)</option><option>Нээлттэй хариулт</option></select></div>
+      <div class="field"><label>Зорилтот хороо</label><input placeholder="Бүх хороо"></div>
+      <button class="btn" style="width:100%" onclick="closeModal('surveyModal');toast('Судалгаа үүсгэгдлээ')">Үүсгэх</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="agentModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="person"><div class="av" style="background:linear-gradient(135deg,var(--green),var(--brand))">📣</div></div>
+      <div><b style="font-size:16px">Ухуулагч бүртгэх</b><div style="font-size:12px;color:var(--text-mute)">Шинэ хэрэглэгчийн эрх үүсгэх</div></div>
+      <div class="x" onclick="closeModal('agentModal')">×</div>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Бүтэн нэр</label><input id="a-name" placeholder="Жишээ: Б. Ариунаа"></div>
+      <div class="row"><div class="field" style="flex:1"><label>Утас / нэвтрэх нэр</label><input id="a-phone" placeholder="9911-0000"></div>
+      <div class="field" style="flex:1"><label>Хариуцах байршил</label><input id="a-ward" placeholder="4-р хороо"></div></div>
+      <div class="field"><label>Эрхийн төвшин</label><select><option>Ухуулагч (талбарын хэрэглэгч)</option><option>Хороо хариуцагч</option><option>Багийн ахлагч</option></select></div>
+      <div style="font-size:12px;color:var(--text-mute);background:var(--bg-2);padding:11px 13px;border-radius:9px;border:1px solid var(--border)">ℹ Бүртгэснээр ухуулагчид SMS-ээр нэвтрэх линк илгээгдэж, гар утсаараа дэмжигч бүртгэх боломжтой болно.</div>
+      <button class="btn" style="width:100%;margin-top:16px" onclick="saveAgent()">Урих & эрх үүсгэх</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ <span id="toastMsg">Амжилттай</span></div>
+
+<script>
+/* ---------------- DATA ---------------- */
+const C1=['#4f7cff','#a98bff','#2dd4a7','#f5b54a','#ff7bb0','#ff6b7a'];
+function avc(i){return C1[i%C1.length]}
+function init(s){return s.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+
+const stanceTag={'Дэмжигч':'t-green','Тэнцсэн':'t-blue','Эргэлзэж буй':'t-amber','Эсрэг':'t-red'};
+const stanceColor={'Дэмжигч':'#2dd4a7','Тэнцсэн':'#4f7cff','Эргэлзэж буй':'#f5b54a','Эсрэг':'#ff6b7a'};
+
+let contacts=[
+ {n:'Б. Болормаа',w:'3-р хороо',p:'9911-2233',s:'Дэмжигч',sup:92,last:'2 хоног'},
+ {n:'Д. Ганбат',w:'5-р хороо',p:'8800-4521',s:'Эргэлзэж буй',sup:48,last:'4 хоног'},
+ {n:'Н. Сараа',w:'1-р хороо',p:'9090-1122',s:'Дэмжигч',sup:88,last:'1 хоног'},
+ {n:'Ц. Энхтуяа',w:'7-р хороо',p:'9555-6677',s:'Тэнцсэн',sup:60,last:'5 хоног'},
+ {n:'Г. Бат-Эрдэнэ',w:'3-р хороо',p:'8811-9900',s:'Эсрэг',sup:18,last:'1 долоо хоног'},
+ {n:'О. Мөнхзул',w:'2-р хороо',p:'9933-2211',s:'Дэмжигч',sup:79,last:'3 хоног'},
+ {n:'Л. Тэмүүлэн',w:'5-р хороо',p:'8877-6655',s:'Эргэлзэж буй',sup:41,last:'6 хоног'},
+ {n:'Ж. Оюунчимэг',w:'1-р хороо',p:'9012-3456',s:'Тэнцсэн',sup:55,last:'2 хоног'},
+ {n:'Б. Тэгшбаяр',w:'7-р хороо',p:'9876-5432',s:'Дэмжигч',sup:84,last:'Өнөөдөр'},
+ {n:'С. Алтанцэцэг',w:'2-р хороо',p:'9123-4567',s:'Эсрэг',sup:22,last:'1 долоо хоног'},
+ {n:'Х. Дөлгөөн',w:'3-р хороо',p:'9234-5678',s:'Дэмжигч',sup:90,last:'1 хоног'},
+ {n:'Р. Мягмар',w:'5-р хороо',p:'9345-6789',s:'Тэнцсэн',sup:58,last:'4 хоног'},
+];
+
+const weekData=[ // [reached, positive]
+ {d:'Дав',r:380,p:260},{d:'Мяг',r:420,p:300},{d:'Лха',r:510,p:380},
+ {d:'Пүр',r:470,p:330},{d:'Баа',r:560,p:410},{d:'Бям',r:620,p:470},{d:'Ням',r:257,p:180}
+];
+
+const issueData=[
+ {t:'Гудамжны гэрэлтүүлэг',v:84},{t:'Замын засвар',v:71},{t:'Хог хаягдал',v:63},
+ {t:'Цэцэрлэгийн хүрэлцээ',v:52},{t:'Олон нийтийн тээвэр',v:44}
+];
+
+const activity=[
+ {ic:'🚪',c:'#2dd4a7',t:'<b>Л. Тэмүүлэн</b> 5-р хороонд 42 гэр зочиллоо',s:'15 минутын өмнө'},
+ {ic:'📋',c:'#a98bff',t:'<b>Орон сууцны судалгаа</b>-д 18 шинэ хариу',s:'1 цагийн өмнө'},
+ {ic:'⚑',c:'#f5b54a',t:'Шинэ асуудал: <b>Гудамжны гэрэлтүүлэг</b> (3-р хороо)',s:'2 цагийн өмнө'},
+ {ic:'👥',c:'#4f7cff',t:'<b>Х. Дөлгөөн</b> дэмжигч болж бүртгэгдлээ',s:'3 цагийн өмнө'},
+ {ic:'✓',c:'#2dd4a7',t:'<b>Замын засвар</b> асуудал шийдвэрлэгдлээ',s:'5 цагийн өмнө'},
+];
+
+const routes=[
+ {n:'9-р хороо · Их тойруу',w:'9-р хороо',h:48,done:32,c:'#4f7cff'},
+ {n:'12-р хороо · Гандан',w:'12-р хороо',h:60,done:21,c:'#2dd4a7'},
+ {n:'4-р хороо · Дамбадаржаа',w:'4-р хороо',h:35,done:35,c:'#a98bff'},
+ {n:'6-р хороо · Денжийн мянга',w:'6-р хороо',h:52,done:8,c:'#f5b54a'},
+];
+
+const surveys=[
+ {t:'Орон сууцны асуудлын судалгаа',d:'Хорооллын дэд бүтэц, орон сууцны нөхцлийн талаар',ic:'🏠',c:'#4f7cff',resp:642,target:900,status:'Идэвхтэй',sc:'t-green'},
+ {t:'Тээврийн үйлчилгээний үнэлгээ',d:'Олон нийтийн тээврийн чанар, давтамжийн талаар',ic:'🚌',c:'#2dd4a7',resp:418,target:600,status:'Идэвхтэй',sc:'t-green'},
+ {t:'Боловсролын тэргүүлэх чиглэл',d:'Сургууль, цэцэрлэгийн хүрэлцээний асуудал',ic:'🎓',c:'#a98bff',resp:531,target:700,status:'Идэвхтэй',sc:'t-green'},
+ {t:'Аюулгүй байдлын асуулга',d:'Хорооны гэрэлтүүлэг, аюулгүй байдлын талаар',ic:'🛡',c:'#f5b54a',resp:301,target:500,status:'Идэвхтэй',sc:'t-green'},
+ {t:'Эрүүл мэндийн хүртээмж',d:'Өрхийн эмнэлэг, эрүүл мэндийн үйлчилгээ',ic:'🏥',c:'#ff7bb0',resp:780,target:780,status:'Дууссан',sc:'t-gray'},
+ {t:'Ногоон орчны санал',d:'Цэцэрлэгт хүрээлэн, ногоон байгууламжийн талаар',ic:'🌳',c:'#2dd4a7',resp:0,target:500,status:'Ноорог',sc:'t-amber'},
+];
+
+const issues=[
+ {t:'Сансар гудамжны гэрэл 2 сар асахгүй байна',w:'3-р хороо',by:'Б. Болормаа',pri:'Өндөр',col:'new'},
+ {t:'4-р замын нүх гүн, осолд хүргэж байна',w:'5-р хороо',by:'Д. Ганбат',pri:'Өндөр',col:'new'},
+ {t:'Хогийн цэг хэт ойрхон, үнэртэй',w:'2-р хороо',by:'О. Мөнхзул',pri:'Дунд',col:'new'},
+ {t:'Цэцэрлэгийн дараалал хэт урт',w:'7-р хороо',by:'Б. Тэгшбаяр',pri:'Дунд',col:'prog'},
+ {t:'Автобусны буудал халхавчгүй',w:'1-р хороо',by:'Н. Сараа',pri:'Бага',col:'prog'},
+ {t:'Усны шугам сэлбэх шаардлагатай',w:'5-р хороо',by:'Р. Мягмар',pri:'Өндөр',col:'prog'},
+ {t:'Хүүхдийн талбайн тоног засагдсан',w:'3-р хороо',by:'Х. Дөлгөөн',pri:'Дунд',col:'done'},
+ {t:'Замын тэмдэг шинэчлэгдсэн',w:'1-р хороо',by:'Ж. Оюунчимэг',pri:'Бага',col:'done'},
+];
+
+const team=[
+ {n:'Л. Тэмүүлэн',r:'Ахлах идэвхжүүлэгч',h:312,st:'Идэвхтэй',sc:'t-green'},
+ {n:'О. Мөнхзул',r:'Сайн дурын ажилтан',h:198,st:'Идэвхтэй',sc:'t-green'},
+ {n:'Б. Тэгшбаяр',r:'Хороо хариуцагч',h:267,st:'Идэвхтэй',sc:'t-green'},
+ {n:'Ж. Оюунчимэг',r:'Сайн дурын ажилтан',h:121,st:'Завтай',sc:'t-amber'},
+ {n:'С. Алтанцэцэг',r:'Судалгаа хариуцагч',h:89,st:'Идэвхтэй',sc:'t-green'},
+];
+
+const priTag={'Өндөр':'t-red','Дунд':'t-amber','Бага':'t-gray'};
+
+let canvassers=[
+ {n:'Л. Тэмүүлэн',w:'5-р хороо',reached:512,sup:287,cover:88,surveys:142,online:true},
+ {n:'Б. Тэгшбаяр',w:'7-р хороо',reached:467,sup:301,cover:82,surveys:118,online:true},
+ {n:'О. Мөнхзул',w:'2-р хороо',reached:398,sup:221,cover:76,surveys:96,online:true},
+ {n:'Б. Ариунаа',w:'4-р хороо',reached:356,sup:198,cover:71,surveys:88,online:false},
+ {n:'С. Алтанцэцэг',w:'3-р хороо',reached:312,sup:176,cover:68,surveys:74,online:true},
+ {n:'Ж. Оюунчимэг',w:'1-р хороо',reached:289,sup:142,cover:61,surveys:65,online:false},
+ {n:'Г. Нараа',w:'6-р хороо',reached:241,sup:119,cover:54,surveys:52,online:true},
+ {n:'Д. Эрдэнэ',w:'8-р хороо',reached:198,sup:88,cover:47,surveys:41,online:false},
+];
+
+/* ---------------- NAV ---------------- */
+const titles={
+ dashboard:['Хяналтын самбар','Кампанит ажлын ерөнхий тойм'],
+ contacts:['Сонгогчид','Контакт бааз & байр суурь'],
+ canvassers:['Ухуулагчид','Хэрэглэгчид & гүйцэтгэлийн самбар'],
+ map:['Канвассинг','Чингэлтэй дүүрэг · Газрын зураг & маршрут'],
+ surveys:['Судалгаа','Санал асуулга & хариу'],
+ segments:['Сегментчлэл','Оролцогчдын задаргаа & аналитик'],
+ issues:['Асуудал','Иргэдийн санал, гомдол'],
+ import:['Дата оруулах','Файл нэгтгэх & давхардал шалгах'],
+ teams:['Баг & тохиргоо','Сайн дурын ажилтнууд'],
+};
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.onclick=()=>{
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    el.classList.add('active');
+    const p=el.dataset.page;
+    document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('active'));
+    document.getElementById(p).classList.add('active');
+    document.getElementById('pageTitle').childNodes[0].nodeValue=titles[p][0];
+    document.getElementById('pageSub').textContent=titles[p][1];
+    animateCounters(document.getElementById(p));
+  };
+});
+
+/* ---------------- DASHBOARD RENDER ---------------- */
+function renderWeek(){
+  const max=Math.max(...weekData.map(d=>d.r));
+  document.getElementById('weekBars').innerHTML=weekData.map(d=>`
+    <div class="bar-col">
+      <div style="width:100%;display:flex;gap:3px;align-items:flex-end;height:100%;justify-content:center">
+        <div class="bar" style="height:${d.r/max*100}%;max-width:18px"></div>
+        <div class="bar" style="height:${d.p/max*100}%;max-width:18px;background:linear-gradient(180deg,var(--green),rgba(45,212,167,.35))"></div>
+      </div>
+      <small>${d.d}</small>
+    </div>`).join('');
+}
+function renderDonut(){
+  document.getElementById('donut').style.background=
+    `conic-gradient(#2dd4a7 0 52%, #4f7cff 52% 74%, #f5b54a 74% 90%, #ff6b7a 90% 100%)`;
+}
+function renderIssueBars(){
+  const max=Math.max(...issueData.map(d=>d.v));
+  document.getElementById('issueBars').innerHTML=issueData.map((d,i)=>`
+    <div style="margin-bottom:13px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+        <span>${d.t}</span><b>${d.v}</b></div>
+      <div style="height:9px;border-radius:6px;background:var(--border);overflow:hidden">
+        <i style="display:block;height:100%;width:${d.v/max*100}%;border-radius:6px;background:${avc(i)}"></i></div>
+    </div>`).join('');
+}
+function renderActivity(){
+  document.getElementById('activityFeed').innerHTML=activity.map(a=>`
+    <div class="activity-item">
+      <div class="av" style="background:${a.c}22;color:${a.c}">${a.ic}</div>
+      <div class="txt">${a.t}<small>${a.s}</small></div>
+    </div>`).join('');
+}
+
+/* ---------------- CONTACTS ---------------- */
+let curFilter='all';
+function renderContacts(){
+  const list=curFilter==='all'?contacts:contacts.filter(c=>c.s===curFilter);
+  document.getElementById('contactBody').innerHTML=list.map((c,i)=>`
+    <tr onclick='showContact(${contacts.indexOf(c)})'>
+      <td><div class="person"><div class="av" style="background:${avc(i)}">${init(c.n)}</div>
+        <div class="nm">${c.n}<small>${c.p}</small></div></div></td>
+      <td>${c.w}</td>
+      <td>${c.p}</td>
+      <td><span class="tag ${stanceTag[c.s]}">${c.s}</span></td>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <div class="support-bar"><i style="width:${c.sup}%;background:${stanceColor[c.s]}"></i></div>
+        <small style="color:var(--text-dim)">${c.sup}%</small></div></td>
+      <td style="color:var(--text-dim)">${c.last}</td>
+    </tr>`).join('');
+}
+document.getElementById('contactChips').onclick=e=>{
+  if(!e.target.dataset.f)return;
+  document.querySelectorAll('#contactChips .chip').forEach(c=>c.classList.remove('active'));
+  e.target.classList.add('active');
+  curFilter=e.target.dataset.f;
+  renderContacts();
+};
+function showContact(i){
+  const c=contacts[i];
+  document.getElementById('detailHead').innerHTML=`
+    <div class="person"><div class="av" style="background:${avc(i)};width:46px;height:46px">${init(c.n)}</div></div>
+    <div><b style="font-size:17px">${c.n}</b><div style="font-size:12.5px;color:var(--text-mute)">${c.w}</div></div>
+    <div class="x" onclick="closeModal('detailModal')">×</div>`;
+  document.getElementById('detailBody').innerHTML=`
+    <div style="margin-bottom:18px"><span class="tag ${stanceTag[c.s]}">${c.s}</span>
+      <span class="tag t-gray" style="margin-left:6px">Дэмжлэг ${c.sup}%</span></div>
+    <div class="detail-row"><div class="k">Утас</div><div class="v">${c.p}</div></div>
+    <div class="detail-row"><div class="k">Хороо</div><div class="v">${c.w}</div></div>
+    <div class="detail-row"><div class="k">Байр суурь</div><div class="v">${c.s}</div></div>
+    <div class="detail-row"><div class="k">Сүүлд холбогдсон</div><div class="v">${c.last}</div></div>
+    <div class="detail-row"><div class="k">Дэмжлэгийн түвшин</div><div class="v" style="flex:1">
+      <div class="support-bar" style="width:100%"><i style="width:${c.sup}%;background:${stanceColor[c.s]}"></i></div></div></div>
+    <div class="ai-card">
+      <div class="ai-head"><span class="ai-badge">🤖 AI зөвлөгөө</span>
+        <span style="font-size:11px;color:var(--text-mute)">Байр суурь + судалгаанд тулгуурлав</span></div>
+      <div id="aiBody">
+        <button class="btn" style="width:100%;justify-content:center" onclick="aiAdvice(${i})">✨ Энэ хүнд тохирсон төлөвлөгөө гаргах</button>
+      </div>
+    </div>
+    <div style="margin-top:18px;padding:14px;background:var(--bg-2);border-radius:11px;border:1px solid var(--border)">
+      <div style="font-size:12.5px;font-weight:600;color:var(--text-dim);margin-bottom:10px">Уулзалтын үр дүн бүртгэх</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <button class="chip" onclick="toast('Дэмжигч гэж тэмдэглэв')">✓ Дэмжинэ</button>
+        <button class="chip" onclick="toast('Эргэлзэж буй гэж тэмдэглэв')">~ Эргэлзэж буй</button>
+        <button class="chip" onclick="toast('Эсрэг гэж тэмдэглэв')">✕ Эсрэг</button>
+        <button class="chip" onclick="toast('Гэртээ байсангүй')">🚪 Байгаагүй</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn" style="flex:1" onclick="toast('Дуудлага бүртгэгдлээ')">📞 Залгах</button>
+      <button class="btn ghost" style="flex:1" onclick="toast('Тэмдэглэл хадгалагдлаа')">✎ Тэмдэглэл</button>
+    </div>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+/* ---------------- AI ЗӨВЛӨГӨӨ ---------------- */
+const AI_ISSUES=['гудамжны гэрэлтүүлэг','замын засвар','хог хаягдал','цэцэрлэгийн хүрэлцээ','олон нийтийн тээвэр','усан хангамж'];
+function generateAiPlan(c){
+  const fn=c.n.replace(/^[^.]*\.\s*/,'').split(' ')[0]; // нэр
+  const concern=AI_ISSUES[c.n.length%AI_ISSUES.length];
+  let summary,pri,priClass,steps,msg;
+  if(c.s==='Дэмжигч'){
+    pri='Өндөр ач холбогдол'; priClass='t-green';
+    summary=`${fn} бол идэвхтэй дэмжигч (${c.sup}%). Хамгийн үнэ цэнтэй нь — бусдыг татах нөөц болгох.`;
+    steps=['Сайн дурын ажил / идэвхжүүлэгчээр оролцохыг урих','Гэр бүл, хөршөө уриалахыг хүсэх','Арга хэмжээнд урьж, мэдээллийг тогтмол хүргэх'];
+    msg=`${fn}, дэмжиж байгаад баярлалаа. ${c.w}-ны ${concern}-ийн талаар бид тодорхой ажил эхлүүлсэн — таны хөршүүдэд ч хүргэхэд тусалж болох уу?`;
+  }else if(c.s==='Тэнцсэн'){
+    pri='Эн тэргүүнд анхаарах'; priClass='t-amber';
+    summary=`${fn} шийдээгүй (${c.sup}%). Зөв мэдээлэл, хувийн хандлагаар дэмжигч болгох боломж өндөр.`;
+    steps=[`${concern}-ийн талаарх санааг нь сонсож, тодорхой шийдэл танилцуулах`,'7 хоногийн дотор дахин холбогдох','Танилцуулга материал, амлалтаа бичгээр илгээх'];
+    msg=`${fn}, ${c.w}-нд хамгийн их санаа зовоож буй зүйл юу вэ? ${concern} бол бидний нэгдүгээр зорилт — төлөвлөгөөгөө танд танилцуулъя.`;
+  }else if(c.s==='Эргэлзэж буй'){
+    pri='Итгэл сэргээх'; priClass='t-amber';
+    summary=`${fn} эргэлзээтэй (${c.sup}%). Гомдол, болгоомжлолыг нь сонсож, бодит шийдлээр итгэл сэргээх шаардлагатай.`;
+    steps=[`${concern} зэрэг тодорхой асуудлыг нь нухацтай сонсох`,'Боломжит шийдэл, хариуцах хүнтэй холбож өгөх','2 долоо хоногийн дараа эргэн холбогдож үр дүнг мэдээлэх'];
+    msg=`${fn}, таны санаа зовнилыг ойлгож байна. ${concern}-тэй холбоотой алхмуудаа тодорхой хэлж, биелэлтийг нь танд эргэж мэдээлье.`;
+  }else{
+    pri='Бага нөөц зарцуул'; priClass='t-gray';
+    summary=`${fn} эсрэг байр суурьтай. Нөөцийг хэмнэж, хүндэтгэлтэй, маргаангүй харилцах нь зүйтэй.`;
+    steps=['Хүндэтгэлтэй сонсож, маргаанд орохгүй байх','Үндсэн мессежээ товч үлдээх','Идэвхтэй ятгалга хийхгүй, дэмжигч/тэнцсэн сегментэд төвлөрөх'];
+    msg=`${fn}, цаг гаргасанд баярлалаа. Бидний ${concern}-ийн талаарх байр суурийг товч үлдээе — сонирхвол хэзээд эргэж холбогдоорой.`;
+  }
+  return {summary,pri,priClass,steps,msg};
+}
+function aiAdvice(i){
+  const c=contacts[i], box=document.getElementById('aiBody');
+  box.innerHTML=`<div class="ai-thinking">${c.n.split(' ').slice(-1)[0]}-д тохирсон төлөвлөгөө боловсруулж байна<span class="ai-dots"><i></i><i></i><i></i></span></div>`;
+  setTimeout(()=>{
+    const p=generateAiPlan(c);
+    box.innerHTML=`
+      <div class="ai-line"><span class="tag ${p.priClass}">${p.pri}</span></div>
+      <p class="ai-sum">${p.summary}</p>
+      <div class="ai-sec">Ажиллах төлөвлөгөө</div>
+      ${p.steps.map((s,k)=>`<div class="ai-step"><span>${k+1}</span>${s}</div>`).join('')}
+      <div class="ai-sec">Хандах өнцөг (санал болгох мессеж)</div>
+      <p class="ai-msg">${p.msg}</p>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" style="flex:1;justify-content:center" onclick="toast('Төлөвлөгөө хадгалагдлаа')">✓ Хадгалах</button>
+        <button class="btn ghost" style="flex:1;justify-content:center" onclick="aiAdvice(${i})">↻ Дахин гаргах</button>
+      </div>`;
+  },1100);
+}
+
+/* ---------------- MAP (Google-style) ---------------- */
+// зам сүлжээ — нэртэй гудамжууд
+const ROADS=[
+  {pts:[[0,448],[260,444],[540,452],[800,446]],name:'Энхтайваны өргөн чөлөө',major:true},
+  {pts:[[0,292],[230,288],[480,296],[800,290]],name:'Бага тойруу',major:true},
+  {pts:[[0,118],[200,116],[470,124],[800,120]],name:'Их тойруу',major:true},
+  {pts:[[472,0],[468,160],[476,320],[470,560]],name:'Чингэлтэйн гудамж',major:true},
+  {pts:[[212,0],[208,150],[214,300],[210,560]],name:'Барууны дөрвөн зам',major:false},
+  {pts:[[650,0],[646,200],[652,400],[648,560]],name:'Гандангийн гудамж',major:false},
+  {pts:[[330,0],[332,118],[330,292]],name:'Самбуугийн гудамж',major:false},
+  {pts:[[100,118],[96,292],[100,448]],name:'Дамбадаржаагийн зам',major:false},
+  {pts:[[212,360],[330,420],[472,396]],name:'Денжийн мянгын зам',major:false},
+];
+const ZONES=[
+  {x:24,y:22,w:380,h:252,c:'#4f7cff',name:'Л. Тэмүүлэн · 9-р хороо'},
+  {x:420,y:22,w:356,h:252,c:'#2dd4a7',name:'Б. Тэгшбаяр · 12-р хороо'},
+  {x:24,y:300,w:380,h:238,c:'#a98bff',name:'О. Мөнхзул · 4-р хороо'},
+  {x:420,y:300,w:356,h:238,c:'#f5b54a',name:'Б. Ариунаа · 6-р хороо'},
+];
+// маршрут бүрийн зогсоолууд (x,y,хаяг,статус)
+const STATUS=[['Дэмжигч','#2dd4a7'],['Эргэлзэж буй','#f5b54a'],['Эсрэг','#ff6b7a'],['Хариу аваагүй','#4f7cff']];
+const routeStops=[
+  [ [120,150,'9-р хороо, 12-101 тоот','Дэмжигч'],[170,170,'9-р хороо, 12-104 тоот','Эргэлзэж буй'],[230,200,'9-р хороо, 14-22 тоот','Дэмжигч'],[300,230,'9-р хороо, 15-7 тоот','Хариу аваагүй'],[330,270,'9-р хороо, 16-3 тоот','Дэмжигч'] ],
+  [ [560,130,'12-р хороо, Гандан 4-201','Дэмжигч'],[600,180,'12-р хороо, Гандан 4-210','Эсрэг'],[650,230,'12-р хороо, Гандан 5-12','Эргэлзэж буй'],[690,280,'12-р хороо, Гандан 5-30','Дэмжигч'] ],
+  [ [90,330,'4-р хороо, Дамбадаржаа 2-5','Дэмжигч'],[140,380,'4-р хороо, Дамбадаржаа 3-1','Дэмжигч'],[180,430,'4-р хороо, Дамбадаржаа 4-9','Эргэлзэж буй'] ],
+  [ [470,330,'6-р хороо, Денж 8-1','Хариу аваагүй'],[520,370,'6-р хороо, Денж 8-14','Эргэлзэж буй'],[560,410,'6-р хороо, Денж 9-2','Дэмжигч'],[610,440,'6-р хороо, Денж 9-20','Эсрэг'],[660,470,'6-р хороо, Денж 10-5','Дэмжигч'] ],
+];
+let activeRoute=0;
+
+function pathFrom(pts){return 'M '+pts.map(p=>p.join(' ')).join(' L ')}
+function midAngle(pts){const a=pts[0],b=pts[pts.length-1];return Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI}
+
+function renderMap(){
+  const svg=document.getElementById('mapSvg');
+  let s=`<rect width="800" height="560" fill="#eaeef3"/>`;
+  // блокууд (барилгын талбай) — цайвар саарал тэгшүүд
+  s+=`<g fill="#dfe4ec">`;
+  const blocks=[[40,30,150,70],[210,30,250,72],[490,28,130,74],[640,30,130,74],
+    [40,140,150,130],[230,150,210,110],[500,150,120,120],[660,150,120,120],
+    [40,310,150,120],[230,320,200,90],[500,320,120,110],[660,320,120,110],
+    [40,460,180,70],[260,470,240,60],[560,470,210,60]];
+  blocks.forEach(b=>{s+=`<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="5"/>`});
+  s+=`</g>`;
+  // хойд талын уулс (Чингэлтэй уул)
+  s+=`<path d="M 0 0 L 800 0 L 800 36 Q 600 14 400 34 Q 200 16 0 36 Z" fill="#cfe0cd"/><text x="400" y="16" text-anchor="middle" font-size="11" fill="#5a7a58" font-weight="700">⛰ Чингэлтэй уул · Дамбадаржаа</text>`;
+  // Гандантэгчэнлин хийд
+  s+=`<rect x="296" y="150" width="96" height="100" rx="10" fill="#e8d9b8"/><text x="344" y="196" text-anchor="middle" font-size="10" fill="#8a6d3a" font-weight="700">☸ Гандан</text><text x="344" y="210" text-anchor="middle" font-size="10" fill="#8a6d3a" font-weight="700">хийд</text>`;
+  // Сэлбэ гол
+  s+=`<path d="M 720 30 Q 760 120 740 240 Q 720 360 760 530 L 800 530 L 800 30 Z" fill="#a9d6ef" opacity="0.85"/><text x="765" y="300" text-anchor="middle" font-size="10" fill="#3d7fa6" font-weight="600" transform="rotate(90 765 300)">Сэлбэ гол</text>`;
+  // дүүргийн нэрийн тэмдэглэгээ
+  s+=`<g transform="translate(20,540)"><rect x="0" y="-26" width="232" height="26" rx="8" fill="#fff" opacity="0.95"/><text x="12" y="-8" font-size="12" font-weight="800" fill="#1a2030">📍 Чингэлтэй дүүрэг, Улаанбаатар</text></g>`;
+  // ухуулагчийн бүс — нялхан өнгөөр
+  ZONES.forEach(z=>{
+    s+=`<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="14" fill="${z.c}" opacity="0.045" stroke="${z.c}" stroke-opacity="0.3" stroke-width="1.3" stroke-dasharray="7 6"/>`;
+    s+=`<g transform="translate(${z.x+10},${z.y+20})"><rect x="-4" y="-13" width="${z.name.length*6.6+26}" height="19" rx="9" fill="#fff" opacity="0.92"/><circle cx="6" cy="-3.5" r="6" fill="${z.c}"/><text x="16" y="0" font-size="10.5" font-weight="700" fill="${z.c}">${z.name}</text></g>`;
+  });
+  // зам — casing дараа нь дүүргэлт
+  ROADS.forEach(r=>{const w=r.major?15:10;s+=`<path d="${pathFrom(r.pts)}" fill="none" stroke="#c8cfdb" stroke-width="${w+3}" stroke-linecap="round" stroke-linejoin="round"/>`});
+  ROADS.forEach(r=>{const w=r.major?15:10;const col=r.major?'#ffffff':'#ffffff';s+=`<path d="${pathFrom(r.pts)}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`});
+  ROADS.filter(r=>r.major).forEach(r=>{s+=`<path d="${pathFrom(r.pts)}" fill="none" stroke="#fbe08a" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`});
+  // замын нэр
+  ROADS.forEach(r=>{const m=r.pts[Math.floor(r.pts.length/2)];const ang=midAngle(r.pts);
+    s+=`<text x="${m[0]}" y="${m[1]+3}" text-anchor="middle" font-size="9.5" fill="#7a8498" font-weight="600" transform="rotate(${Math.abs(ang)>45?(ang>0?ang-90:ang+90):0} ${m[0]} ${m[1]})">${r.name}</text>`});
+  // байшингууд — жижиг цэгүүд статусаар
+  const agentByZone=(x,y)=>{for(const z of ZONES){if(x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h)return z.name}return '—'};
+  const cats=[['#2dd4a7',40],['#f5b54a',22],['#ff6b7a',12],['#4f7cff',14],['#9aa3b2',22]];
+  const names=['Дэмжигч','Эргэлзэж буй','Эсрэг','Хариу аваагүй','Очоогүй'];
+  let idx=0,hs='';
+  for(let r=0;r<6;r++)for(let c=0;c<10;c++){
+    if(Math.random()<0.32)continue;
+    const x=55+c*78+(Math.random()*20-10), y=55+r*86+(Math.random()*20-10);
+    // зам дээр унавал алгасах
+    let onRoad=false; for(const rd of ROADS){for(const p of rd.pts){if(Math.abs(p[0]-x)<10&&Math.abs(p[1]-y)<10)onRoad=true}}
+    if(onRoad)continue;
+    let pick=Math.random()*110,acc=0,ci=0;
+    for(let k=0;k<cats.length;k++){acc+=cats[k][1];if(pick<acc){ci=k;break}}
+    hs+=`<circle class="house" data-name="${names[ci]} · ${agentByZone(x,y)}" data-addr="Гэр #${100+idx} · ${(idx%8)+1}-р хороо" cx="${x}" cy="${y}" r="4.5" fill="${cats[ci][1]}" stroke="#fff" stroke-width="1.3"/>`;
+    idx++;
+  }
+  s+=hs;
+  // идэвхтэй маршрут
+  s+=renderRouteSvg(activeRoute);
+  svg.innerHTML=s;
+  bindHouses();
+}
+function renderRouteSvg(i){
+  const stops=routeStops[i]; if(!stops)return '';
+  const col=routes[i].c;
+  let s=`<path d="M ${stops.map(p=>p[0]+' '+p[1]).join(' L ')}" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s+=`<path d="M ${stops.map(p=>p[0]+' '+p[1]).join(' L ')}" fill="none" stroke="${col}" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  stops.forEach((p,k)=>{
+    const sc=(STATUS.find(st=>st[0]===p[3])||['','#888'])[1];
+    if(k===0){ // эхлэл
+      s+=`<g class="house" data-name="Эхлэл" data-addr="${p[2]}"><circle cx="${p[0]}" cy="${p[1]}" r="10" fill="#fff"/><circle cx="${p[0]}" cy="${p[1]}" r="7" fill="${col}"/></g>`;
+    }else{ // teardrop pin
+      s+=`<g class="house" data-name="${p[3]}" data-addr="${p[2]}" transform="translate(${p[0]},${p[1]})">
+        <path d="M 0 2 C -10 -10 -10 -22 0 -22 C 10 -22 10 -10 0 2 Z" fill="${col}" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="0" cy="-14" r="7" fill="#fff"/><text x="0" y="-11" text-anchor="middle" font-size="9" font-weight="800" fill="${col}">${k}</text>
+      </g>`;
+    }
+  });
+  return s;
+}
+function bindHouses(){
+  const tip=document.getElementById('mapTip');
+  document.querySelectorAll('#mapSvg .house').forEach(h=>{
+    h.style.cursor='pointer';
+    h.addEventListener('mousemove',e=>{
+      const rect=document.getElementById('mapStage').getBoundingClientRect();
+      tip.style.left=(e.clientX-rect.left+12)+'px';
+      tip.style.top=(e.clientY-rect.top+12)+'px';
+      tip.innerHTML=`${h.dataset.addr}<small>${h.dataset.name}</small>`;
+      tip.style.opacity=1;
+    });
+    h.addEventListener('mouseleave',()=>tip.style.opacity=0);
+    h.addEventListener('click',()=>toast(h.dataset.addr+' — '+h.dataset.name));
+  });
+}
+function renderRoutes(){
+  document.getElementById('routeList').innerHTML=routes.map((r,i)=>`
+    <div class="route-item" onclick="showRoute(${i})">
+      <div class="pin" style="background:${r.c}">${Math.round(r.done/r.h*100)}%</div>
+      <div class="info">${r.n}<small>${r.w} · ${r.done}/${r.h} гэр</small></div>
+    </div>`).join('');
+}
+function showRoute(i){
+  activeRoute=i; renderMap();
+  const r=routes[i], stops=routeStops[i]||[];
+  const dist=(stops.length*0.4+0.6).toFixed(1), mins=Math.round(stops.length*9+12);
+  // ETA panel
+  const eta=document.getElementById('mapEta');
+  eta.style.display='block';
+  eta.innerHTML=`<div class="big">${mins} мин</div><div class="sub">${dist} км · ${stops.length} зогсоол · явган</div>`;
+  // side detail
+  document.getElementById('routePanel').style.display='none';
+  const rd=document.getElementById('routeDetail');
+  rd.style.display='block';
+  rd.innerHTML=`
+    <div class="rd-back" onclick="backToRoutes()">← Бүх маршрут</div>
+    <div class="rd-head">
+      <h3>${r.n}</h3>
+      <div class="rd-stats">
+        <div><b>${mins} мин</b>Хугацаа</div>
+        <div><b>${dist} км</b>Зай</div>
+        <div><b>${r.done}/${r.h}</b>Явц</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-mute);margin-bottom:8px">Зогсоол бүрд очих дараалал</div>
+    ${stops.map((p,k)=>{const sc=(STATUS.find(st=>st[0]===p[3])||['','#888'])[1];
+      return `<div class="stop"><div class="sdot" style="background:${k===0?r.c:sc}">${k===0?'◉':k}</div>
+        <div class="sinfo">${p[2]}<small>${k===0?'Эхлэх цэг':p[3]}</small></div></div>`}).join('')}
+    <button class="btn" style="width:100%;margin-top:14px" onclick="toast('${r.n} навигаци эхэллээ')">▶ Навигаци эхлүүлэх</button>`;
+}
+function backToRoutes(){
+  document.getElementById('routeDetail').style.display='none';
+  document.getElementById('routePanel').style.display='block';
+  document.getElementById('mapEta').style.display='none';
+}
+
+/* ---------------- SURVEYS ---------------- */
+function renderSurveys(){
+  document.getElementById('surveyGrid').innerHTML=surveys.map((s,i)=>{
+    const pct=s.target?Math.round(s.resp/s.target*100):0;
+    const click=s.resp>0?`onclick="openSegments(${i})"`:`onclick="toast('Энэ судалгаа хараахан хариугүй байна')"`;
+    return `<div class="card survey-card" ${click}>
+      <div class="top">
+        <div class="qic" style="background:${s.c}22;color:${s.c}">${s.ic}</div>
+        <span class="tag ${s.sc}">${s.status}</span>
+      </div>
+      <h4>${s.t}</h4><p>${s.d}</p>
+      <div class="progress-line"><i style="width:${pct}%"></i></div>
+      <div class="survey-meta"><span>${s.resp} / ${s.target} хариу</span><b>${s.resp>0?'Задаргаа →':pct+'%'}</b></div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------------- SEGMENTS / СЕГМЕНТЧЛЭЛ ---------------- */
+const WARDS=['4-р хороо','6-р хороо','9-р хороо','12-р хороо','15-р хороо','18-р хороо'];
+const AGES=['18–25','26–35','36–50','51–65','65+'];
+const GEN=[['Эрэгтэй','#4f7cff'],['Эмэгтэй','#ff7bb0']];
+const STN=[['Дэмжинэ','#2dd4a7'],['Эргэлзэж буй','#f5b54a'],['Эсрэг','#ff6b7a']];
+const FNAMES=['Б. Болормаа','Д. Ганбат','Н. Сараа','Ц. Энхтуяа','О. Мөнхзул','Л. Тэмүүлэн','Ж. Оюунчимэг','Б. Тэгшбаяр','С. Алтанцэцэг','Х. Дөлгөөн','Р. Мягмар','Г. Нараа','Д. Эрдэнэ','Б. Ариунаа','Т. Сувд','Э. Батбаяр','Ө. Цэрэн','А. Золбоо'];
+let segCrossX='ward';
+function mulberry(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}}
+function genRespondents(si){
+  const sv=surveys[si], rnd=mulberry(si*97+13);
+  const n=Math.min(56,Math.max(16,Math.round((sv.resp||40)/16)+16));
+  const arr=[];
+  for(let i=0;i<n;i++){
+    const ag=Math.floor(rnd()*AGES.length);
+    arr.push({
+      name:FNAMES[Math.floor(rnd()*FNAMES.length)],
+      ward:WARDS[Math.floor(rnd()*WARDS.length)],
+      age:AGES[ag],
+      gender:GEN[rnd()<0.53?1:0][0],
+      stance:STN[ rnd()<0.56?0:(rnd()<0.62?1:2) ][0],
+      date:`06-${String(1+Math.floor(rnd()*8)).padStart(2,'0')}`,
+    });
+  }
+  return arr;
+}
+function countBy(arr,key,order){
+  const m={}; (order||[]).forEach(k=>m[k]=0);
+  arr.forEach(r=>m[r[key]]=(m[r[key]]||0)+1);
+  return Object.entries(m);
+}
+function barList(entries,colorFn){
+  const max=Math.max(1,...entries.map(e=>e[1]));
+  return entries.map((e,i)=>`
+    <div style="margin-bottom:11px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${e[0]}</span><b>${e[1]}</b></div>
+      <div style="height:9px;border-radius:6px;background:var(--border);overflow:hidden">
+        <i style="display:block;height:100%;width:${e[1]/max*100}%;border-radius:6px;background:${colorFn?colorFn(i,e[0]):'var(--brand)'}"></i></div>
+    </div>`).join('');
+}
+function openSegments(si){
+  // navigate
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page==='segments'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('segments').classList.add('active');
+  document.getElementById('pageTitle').childNodes[0].nodeValue=titles.segments[0];
+  document.getElementById('pageSub').textContent=titles.segments[1];
+  document.getElementById('segSurvey').value=String(si);
+  renderSegments();
+}
+function initSegSelect(){
+  document.getElementById('segSurvey').innerHTML=surveys.map((s,i)=>s.resp>0?`<option value="${i}">${s.ic} ${s.t}</option>`:'').join('');
+}
+function renderSegments(){
+  const si=parseInt(document.getElementById('segSurvey').value||'0');
+  const sv=surveys[si]; const R=genRespondents(si);
+  const total=sv.resp;
+  // KPI
+  const femPct=Math.round(R.filter(r=>r.gender==='Эмэгтэй').length/R.length*100);
+  const supPct=Math.round(R.filter(r=>r.stance==='Дэмжинэ').length/R.length*100);
+  const compl=sv.target?Math.round(sv.resp/sv.target*100):100;
+  document.getElementById('segKpi').innerHTML=`
+    <div class="card stat"><div class="ic" style="background:rgba(79,124,255,.16);color:var(--brand-2)">📋</div><div class="v">${total.toLocaleString()}</div><div class="l">Нийт хариу</div></div>
+    <div class="card stat"><div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">✓</div><div class="v">${compl}%</div><div class="l">Гүйцэтгэл (зорилт)</div></div>
+    <div class="card stat"><div class="ic" style="background:rgba(255,123,176,.16);color:var(--pink)">♀</div><div class="v">${femPct}%</div><div class="l">Эмэгтэй оролцогч</div></div>
+    <div class="card stat"><div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">👍</div><div class="v">${supPct}%</div><div class="l">Дэмжих хандлага</div></div>`;
+  // ward & age bars
+  document.getElementById('segWard').innerHTML=barList(countBy(R,'ward',WARDS),i=>avc(i));
+  document.getElementById('segAge').innerHTML=barList(countBy(R,'age',AGES),()=>'var(--purple)');
+  // gender donut
+  const g=countBy(R,'gender',GEN.map(x=>x[0]));
+  const tot=R.length; let acc=0,grad=[];
+  g.forEach((e,i)=>{const pct=e[1]/tot*100;grad.push(`${GEN[i][1]} ${acc}% ${acc+pct}%`);acc+=pct});
+  document.getElementById('segGenderDonut').style.background=`conic-gradient(${grad.join(',')})`;
+  document.getElementById('segGTotal').textContent=tot;
+  document.getElementById('segGenderLeg').innerHTML=g.map((e,i)=>`<div class="dl-item"><i class="dot-l" style="background:${GEN[i][1]}"></i> ${e[0]} <span class="val">${Math.round(e[1]/tot*100)}%</span></div>`).join('');
+  // stance bars
+  document.getElementById('segStance').innerHTML=barList(countBy(R,'stance',STN.map(x=>x[0])),(i,l)=>(STN.find(s=>s[0]===l)||['','#888'])[1]);
+  // cross-tab
+  renderCross(R);
+  animateCounters(document.getElementById('segKpi'));
+  // table
+  document.getElementById('segRespCount').textContent=`${R.length} оролцогч (түүврээр)`;
+  document.getElementById('segRespBody').innerHTML=R.slice(0,18).map((r,i)=>`
+    <tr><td><div class="person"><div class="av" style="background:${avc(i)};width:30px;height:30px;font-size:12px">${init(r.name)}</div><div class="nm">${r.name}</div></div></td>
+    <td>${r.ward}</td><td>${r.age}</td><td>${r.gender}</td>
+    <td><span class="tag ${r.stance==='Дэмжинэ'?'t-green':r.stance==='Эргэлзэж буй'?'t-amber':'t-red'}">${r.stance}</span></td>
+    <td style="color:var(--text-dim)">${r.date}</td></tr>`).join('');
+}
+function renderCross(R){
+  const dim=segCrossX, order=dim==='ward'?WARDS:dim==='age'?AGES:GEN.map(x=>x[0]);
+  const rows=order.map(cat=>{
+    const sub=R.filter(r=>r[dim]===cat); const t=sub.length||1;
+    const dist=STN.map(s=>sub.filter(r=>r.stance===s[0]).length/t*100);
+    return {cat,n:sub.length,dist};
+  }).filter(r=>r.n>0);
+  document.getElementById('segCross').innerHTML=rows.map(r=>`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px"><span>${r.cat}</span><span style="color:var(--text-mute)">${r.n}</span></div>
+      <div style="display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--border)">
+        ${STN.map((s,i)=>`<div style="width:${r.dist[i]}%;background:${s[1]}" title="${s[0]} ${Math.round(r.dist[i])}%"></div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ---------------- ISSUES ---------------- */
+function renderIssues(){
+  ['new','prog','done'].forEach(col=>{
+    const list=issues.filter(i=>i.col===col);
+    document.getElementById('col-'+col).innerHTML=list.map(i=>`
+      <div class="issue" onclick="toast('${i.t.slice(0,30)}…')">
+        <span class="tag ${priTag[i.pri]}" style="margin-bottom:9px">${i.pri}</span>
+        <h5>${i.t}</h5>
+        <div class="ifoot">
+          <span class="loc">📍 ${i.w}</span>
+          <span>${i.by}</span>
+        </div>
+      </div>`).join('');
+  });
+  document.getElementById('c-new').textContent=issues.filter(i=>i.col==='new').length;
+  document.getElementById('c-prog').textContent=issues.filter(i=>i.col==='prog').length;
+  document.getElementById('c-done').textContent=issues.filter(i=>i.col==='done').length;
+}
+
+/* ---------------- CANVASSERS ---------------- */
+function renderCanvassers(){
+  const maxR=Math.max(...canvassers.map(c=>c.reached));
+  const maxS=Math.max(...canvassers.map(c=>c.sup));
+  document.getElementById('canvasserBody').innerHTML=canvassers.map((c,i)=>{
+    const rk=i<3?['lb-1','lb-2','lb-3'][i]:'lb-n';
+    return `<tr onclick="showCanvasser(${i})">
+      <td><div class="lb-rank ${rk}">${i+1}</div></td>
+      <td><div class="person"><div class="av" style="background:${avc(i)}">${init(c.n)}</div>
+        <div class="nm">${c.n}<small>Ухуулагч</small></div></div></td>
+      <td>${c.w}</td>
+      <td><div class="perf-cell"><div class="mini-bar"><i style="width:${c.reached/maxR*100}%"></i></div><b>${c.reached}</b></div></td>
+      <td><div class="perf-cell"><div class="mini-bar"><i style="width:${c.sup/maxS*100}%;background:var(--green)"></i></div><b>${c.sup}</b></div></td>
+      <td><span class="tag ${c.cover>=70?'t-green':c.cover>=55?'t-amber':'t-gray'}">${c.cover}%</span></td>
+      <td>${c.surveys}</td>
+      <td>${c.online?'<span class="online"></span> Онлайн':'<span class="offline"></span> Офлайн'}</td>
+    </tr>`;
+  }).join('');
+}
+function showCanvasser(i){
+  const c=canvassers[i];
+  document.getElementById('detailHead').innerHTML=`
+    <div class="person"><div class="av" style="background:${avc(i)};width:46px;height:46px">${init(c.n)}</div></div>
+    <div><b style="font-size:17px">${c.n}</b><div style="font-size:12.5px;color:var(--text-mute)">Ухуулагч · ${c.w}</div></div>
+    <div class="x" onclick="closeModal('detailModal')">×</div>`;
+  document.getElementById('detailBody').innerHTML=`
+    <div style="margin-bottom:18px">${c.online?'<span class="tag t-green"><span class="online"></span> Онлайн</span>':'<span class="tag t-gray">Офлайн</span>'}
+      <span class="tag t-blue" style="margin-left:6px">Хамралт ${c.cover}%</span></div>
+    <div class="kpi-row" style="grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px">
+      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.reached}</div><div class="l">Хүрсэн гэр</div></div>
+      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px;color:var(--green)">${c.sup}</div><div class="l">Бүртгэсэн дэмжигч</div></div>
+      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${(c.sup/c.reached*100).toFixed(0)}%</div><div class="l">Хувиргалт (conversion)</div></div>
+      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.surveys}</div><div class="l">Цуглуулсан судалгаа</div></div>
+    </div>
+    <div class="detail-row"><div class="k">Хариуцсан байршил</div><div class="v">${c.w}</div></div>
+    <div class="detail-row"><div class="k">Сүүлийн check-in</div><div class="v">${c.online?'Одоо · '+c.w:'2 цагийн өмнө'}</div></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn" style="flex:1" onclick="toast('Маршрут хуваарилах')">🗺 Маршрут өгөх</button>
+      <button class="btn ghost" style="flex:1" onclick="toast('Зурвас илгээх')">✉ Зурвас</button>
+    </div>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+function openAgentModal(){document.getElementById('agentModal').classList.add('open')}
+function saveAgent(){
+  const n=document.getElementById('a-name').value.trim()||'Шинэ ухуулагч';
+  const w=document.getElementById('a-ward').value.trim()||'—';
+  canvassers.unshift({n,w,reached:0,sup:0,cover:0,surveys:0,online:false});
+  document.getElementById('a-name').value='';document.getElementById('a-phone').value='';document.getElementById('a-ward').value='';
+  renderCanvassers();closeModal('agentModal');toast(n+' урилга илгээгдлээ');
+}
+
+/* ---------------- LOGIN ---------------- */
+let loginRole='admin';
+function pickLoginRole(r){
+  loginRole=r;
+  document.querySelectorAll('.login-role').forEach(el=>el.classList.toggle('sel',el.dataset.role===r));
+  const isAgent=r==='agent';
+  document.querySelector('#lg-passField label').textContent=isAgent?'SMS баталгаажуулах код':'Нууц үг';
+  document.getElementById('lg-pass').type=isAgent?'text':'password';
+  document.getElementById('lg-pass').value=isAgent?'1234':'••••••';
+  document.getElementById('lg-user').value=isAgent?'9911-2233':'9911-0000';
+  document.getElementById('lg-hint').innerHTML=isAgent
+    ?'Ухуулагч SMS-ээр ирсэн <b>кодоор</b> нэвтэрнэ (демо)'
+    :'Демо горим — <b>дурын утгаар</b> нэвтэрч болно';
+}
+function doLogin(){
+  document.getElementById('loginOverlay').classList.add('hide');
+  setRole(loginRole);
+  const who=loginRole==='admin'?'Админаар':'Ухуулагчаар';
+  setTimeout(()=>toast(who+' нэвтэрлээ'),300);
+}
+function logout(){
+  document.getElementById('loginOverlay').classList.remove('hide');
+}
+
+/* ---------------- ROLE SWITCH ---------------- */
+function setRole(r){
+  document.querySelectorAll('#roleSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.role===r));
+  const adminOnly=['canvassers','import','teams','issues'];
+  if(r==='agent'){
+    document.getElementById('roleAva').textContent='Б';
+    document.getElementById('roleMeta').innerHTML='Б. Ариунаа<small>Ухуулагч · 4-р хороо</small>';
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      n.style.display=adminOnly.includes(n.dataset.page)?'none':'';
+    });
+    toast('Ухуулагчийн дэлгэц — зөвхөн өөрийн байршил, сонгогч, судалгаа харагдана');
+  }else{
+    document.getElementById('roleAva').textContent='А';
+    document.getElementById('roleMeta').innerHTML='Азура<small>Админ · Кампанит менежер</small>';
+    document.querySelectorAll('.nav-item').forEach(n=>n.style.display='');
+    toast('Админ дэлгэц — бүх модуль, бүх ухуулагчийн гүйцэтгэл');
+  }
+}
+
+/* ---------------- TEAMS ---------------- */
+function renderTeam(){
+  document.getElementById('teamBody').innerHTML=team.map((t,i)=>`
+    <tr>
+      <td><div class="person"><div class="av" style="background:${avc(i+1)}">${init(t.n)}</div>
+        <div class="nm">${t.n}</div></div></td>
+      <td>${t.r}</td>
+      <td><b>${t.h}</b> гэр</td>
+      <td><span class="tag ${t.sc}">${t.st}</span></td>
+    </tr>`).join('');
+}
+
+/* ---------------- MODALS / UTIL ---------------- */
+function openAdd(){document.getElementById('addModal').classList.add('open')}
+function openSurveyModal(){document.getElementById('surveyModal').classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+function saveContact(){
+  const n=document.getElementById('f-name').value.trim()||'Шинэ сонгогч';
+  const w=document.getElementById('f-ward').value.trim()||'—';
+  const p=document.getElementById('f-phone').value.trim()||'—';
+  const s=document.getElementById('f-stance').value;
+  const sup=s==='Дэмжигч'?85:s==='Тэнцсэн'?55:s==='Эргэлзэж буй'?40:20;
+  contacts.unshift({n,w,p,s,sup,last:'Өнөөдөр'});
+  document.getElementById('f-name').value='';document.getElementById('f-ward').value='';document.getElementById('f-phone').value='';
+  renderContacts();closeModal('addModal');toast(n+' нэмэгдлээ');
+}
+let toastT;
+function toast(m){
+  document.getElementById('toastMsg').textContent=m;
+  const t=document.getElementById('toast');t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ---------------- INIT ---------------- */
+/* ---------------- ХӨДӨЛГӨӨНТ ДЭВСГЭР (particle network) ---------------- */
+(function(){
+  const cv=document.getElementById('bgCanvas'),ctx=cv.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;
+    const n=Math.min(70,Math.floor(W*H/24000));
+    pts=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35}));
+  }
+  resize();addEventListener('resize',resize);
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+    for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;}
+    // шугамууд
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.hypot(dx,dy);
+        if(d<128){ctx.strokeStyle=`rgba(46,107,255,${(1-d/128)*0.16})`;ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.stroke();}
+      }
+    }
+    // цэгүүд
+    for(const p of pts){ctx.fillStyle='rgba(46,107,255,0.45)';ctx.beginPath();ctx.arc(p.x,p.y,1.7,0,7);ctx.fill();}
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+
+/* ---------------- ТОО ТООЛОХ АНИМАЦИ ---------------- */
+function animateCounters(scope){
+  (scope||document).querySelectorAll('.stat .v').forEach(el=>{
+    const raw=el.dataset.cv||el.textContent; el.dataset.cv=raw;
+    const m=raw.match(/^([^\d]*)([\d,\.]+)(.*)$/); if(!m)return;
+    const pre=m[1],digits=m[2],suf=m[3],hasComma=digits.includes(','),dec=(digits.split('.')[1]||'').length;
+    const target=parseFloat(digits.replace(/,/g,'')); if(isNaN(target))return;
+    const t0=performance.now(),dur=850;
+    function step(t){const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);
+      let v=target*e, out=dec?v.toFixed(dec):(hasComma?Math.round(v).toLocaleString('en-US'):String(Math.round(v)));
+      el.textContent=pre+out+suf; if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  });
+}
+
+document.getElementById('segCrossChips').onclick=e=>{
+  if(!e.target.dataset.x)return;
+  document.querySelectorAll('#segCrossChips .chip').forEach(c=>c.classList.remove('active'));
+  e.target.classList.add('active'); segCrossX=e.target.dataset.x;
+  renderCross(genRespondents(parseInt(document.getElementById('segSurvey').value||'0')));
+};
+renderWeek();renderDonut();renderIssueBars();renderActivity();
+renderContacts();renderCanvassers();renderMap();renderRoutes();renderSurveys();renderIssues();renderTeam();
+initSegSelect();renderSegments();
+animateCounters(document.getElementById('dashboard'));
+</script>
+</body>
+</html>
