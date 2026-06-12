@@ -480,6 +480,7 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 
   <div class="nav-label">Үндсэн</div>
+  <div class="nav-item" data-page="mykpi" style="display:none"><span class="ic">📊</span> Миний КПИ</div>
   <div class="nav-item active" data-page="dashboard"><span class="ic">▦</span> Хяналтын самбар</div>
   <div class="nav-item" data-page="contacts"><span class="ic">👥</span> Сонгогчид <span class="badge">12.4к</span></div>
   <div class="nav-item" data-page="canvassers"><span class="ic">📣</span> Ухуулагчид <span class="badge">38</span></div>
@@ -591,6 +592,19 @@ tbody tr:last-child td{border-bottom:none}
         <div class="panel-head"><h3>Сүүлийн үйл явдал</h3></div>
         <div id="activityFeed"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ МИНИЙ КПИ (ухуулагчийн дэлгэц) ============ -->
+  <div class="page" id="mykpi">
+    <div class="role-banner">
+      <div class="rb-ic">📣</div>
+      <div id="kpiWelcome">Таны гүйцэтгэлийн үзүүлэлт доор байна.</div>
+    </div>
+    <div class="kpi-row" id="myKpiCards"></div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Дэлгэрэнгүй</h3></div>
+      <div id="myKpiDetail"></div>
     </div>
   </div>
 
@@ -886,10 +900,9 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="modal-body">
       <div class="field"><label>Бүтэн нэр</label><input id="a-name" placeholder="Жишээ: Б. Ариунаа"></div>
-      <div class="row"><div class="field" style="flex:1"><label>Утас / нэвтрэх нэр</label><input id="a-phone" placeholder="9911-0000"></div>
+      <div class="row"><div class="field" style="flex:1"><label>И-мэйл (нэвтрэх)</label><input id="a-email" placeholder="uhuulagch@gmail.com"></div>
       <div class="field" style="flex:1"><label>Хариуцах байршил</label><input id="a-ward" placeholder="4-р хороо"></div></div>
-      <div class="field"><label>Эрхийн төвшин</label><select><option>Ухуулагч (талбарын хэрэглэгч)</option><option>Хороо хариуцагч</option><option>Багийн ахлагч</option></select></div>
-      <div style="font-size:12px;color:var(--text-mute);background:var(--bg-2);padding:11px 13px;border-radius:9px;border:1px solid var(--border)">ℹ Бүртгэснээр ухуулагчид SMS-ээр нэвтрэх линк илгээгдэж, гар утсаараа дэмжигч бүртгэх боломжтой болно.</div>
+      <div style="font-size:12px;color:var(--text-mute);background:var(--bg-2);padding:11px 13px;border-radius:9px;border:1px solid var(--border)">ℹ Энд бүртгэснээр ухуулагч энэ и-мэйлээр нэвтэрч <b>зөвхөн өөрийн КПИ-г</b> харна. Нэвтрэх данс (нууц үг)-ийг нь Supabase → Authentication → Add user дээр мөн и-мэйлээр нь үүсгэхээ мартуузай.</div>
       <button class="btn" style="width:100%;margin-top:16px" onclick="saveAgent()">Урих & эрх үүсгэх</button>
     </div>
   </div>
@@ -997,6 +1010,98 @@ let canvassers=[
 ];
 
 /* ---------------- DB SYNC (Supabase) ---------------- */
+let ME=null; // нэвтэрсэн хэрэглэгч: {email, role:'admin'|'canvasser', name}
+
+async function enterApp(){
+  if(!DB_ON)return true;
+  const {data:sess}=await db.auth.getSession();
+  const email=sess&&sess.session?sess.session.user.email:null;
+  if(!email)return false;
+  const q=await db.from('app_users').select('*').eq('email',email).maybeSingle();
+  if(q.error){
+    // app_users хүснэгт хараахан үүсээгүй (шилжилтийн үе) — админ гэж үзнэ
+    console.warn('app_users унших боломжгүй, шилжилтийн горим:',q.error.message);
+    ME={email,role:'admin',name:email.split('@')[0]};
+  }else if(!q.data){
+    toast('⚠ Танд эрх олгогдоогүй байна — админд хандана уу');
+    await db.auth.signOut();
+    return false;
+  }else{
+    ME={email,role:q.data.role,name:q.data.name||email.split('@')[0]};
+  }
+  applyAccess();
+  if(ME.role==='admin'){loadContacts();loadCanvassersDb();}
+  else loadMyKpi();
+  return true;
+}
+
+function applyAccess(){
+  if(!DB_ON||!ME)return;
+  document.getElementById('roleAva').textContent=(ME.name||'?').trim()[0].toUpperCase();
+  document.getElementById('roleMeta').innerHTML=ME.name+'<small>'+(ME.role==='admin'?'Админ · Кампанит менежер':'Ухуулагч')+'</small>';
+  document.getElementById('roleSwitch').style.display='none';
+  if(ME.role==='admin'){
+    document.querySelectorAll('.nav-item').forEach(n=>n.style.display=n.dataset.page==='mykpi'?'none':'');
+    return;
+  }
+  /* ухуулагч: зөвхөн өөрийн КПИ */
+  document.querySelectorAll('.nav-item').forEach(n=>n.style.display=n.dataset.page==='mykpi'?'':'none');
+  document.querySelectorAll('.topbar .icon-btn').forEach(b=>{if(!b.classList.contains('menu-btn'))b.style.display='none'});
+  document.querySelector('.search').style.display='none';
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page==='mykpi'));
+  document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('active'));
+  document.getElementById('mykpi').classList.add('active');
+  document.getElementById('pageTitle').childNodes[0].nodeValue='Миний КПИ';
+  document.getElementById('pageSub').textContent='Гүйцэтгэлийн үзүүлэлт';
+}
+
+async function loadMyKpi(){
+  if(!DB_ON||!ME)return;
+  const {data:c}=await db.from('canvassers').select('*').eq('email',ME.email).maybeSingle();
+  const box=document.getElementById('myKpiCards'),det=document.getElementById('myKpiDetail');
+  document.getElementById('kpiWelcome').innerHTML='Сайн байна уу, <b>'+(c?c.name:ME.name)+'</b>! Таны гүйцэтгэлийн үзүүлэлт доор байна.';
+  if(!c){
+    box.innerHTML='';
+    det.innerHTML='<div style="padding:6px 0;font-size:13.5px;color:var(--text-dim)">Таны КПИ бүртгэл хараахан үүсээгүй байна — админ таныг «Ухуулагчид» хэсэгт бүртгэснээр энд харагдана.</div>';
+    return;
+  }
+  const conv=c.reached>0?Math.round(c.supporters/c.reached*100):0;
+  box.innerHTML=`
+    <div class="card stat"><div class="ic" style="background:rgba(79,124,255,.16);color:var(--brand-2)">🚪</div><div class="v">${c.reached}</div><div class="l">Хүрсэн гэр</div></div>
+    <div class="card stat"><div class="ic" style="background:rgba(45,212,167,.16);color:var(--green)">✓</div><div class="v">${c.supporters}</div><div class="l">Бүртгэсэн дэмжигч</div></div>
+    <div class="card stat"><div class="ic" style="background:rgba(169,139,255,.16);color:var(--purple)">📍</div><div class="v">${c.coverage}%</div><div class="l">Хамралт</div></div>
+    <div class="card stat"><div class="ic" style="background:rgba(245,181,74,.16);color:var(--amber)">📋</div><div class="v">${c.surveys}</div><div class="l">Судалгаа</div></div>`;
+  det.innerHTML=`
+    <div class="detail-row"><div class="k">Хариуцсан байршил</div><div class="v">${c.ward||'—'}</div></div>
+    <div class="detail-row"><div class="k">Хувиргалт</div><div class="v">${conv}% (дэмжигч / хүрсэн гэр)</div></div>
+    <div class="detail-row"><div class="k">Статус</div><div class="v">${c.active?'Идэвхтэй':'Идэвхгүй'}</div></div>`;
+  animateCounters(document.getElementById('mykpi'));
+}
+
+function rowToCanvasser(r){return {id:r.id,email:r.email,n:r.name,w:r.ward,reached:r.reached,sup:r.supporters,cover:r.coverage,surveys:r.surveys,online:r.active}}
+async function loadCanvassersDb(){
+  if(!DB_ON||!ME||ME.role!=='admin')return;
+  const {data,error}=await db.from('canvassers').select('*').order('reached',{ascending:false});
+  if(error){console.warn('canvassers хүснэгт уншигдсангүй:',error.message);return;}
+  canvassers=data.map(rowToCanvasser);
+  renderCanvassers();
+  const badge=document.querySelector('.nav-item[data-page="canvassers"] .badge');
+  if(badge)badge.textContent=canvassers.length;
+}
+async function saveKpi(i){
+  const c=canvassers[i];
+  const vals={
+    reached:parseInt(document.getElementById('k-reached').value)||0,
+    supporters:parseInt(document.getElementById('k-sup').value)||0,
+    coverage:parseInt(document.getElementById('k-cover').value)||0,
+    surveys:parseInt(document.getElementById('k-surveys').value)||0
+  };
+  const {error}=await db.from('canvassers').update(vals).eq('id',c.id);
+  if(error){toast('⚠ Хадгалахад алдаа гарлаа');console.error(error);return;}
+  c.reached=vals.reached;c.sup=vals.supporters;c.cover=vals.coverage;c.surveys=vals.surveys;
+  renderCanvassers();closeModal('detailModal');toast(c.n+' — КПИ шинэчлэгдлээ');
+}
+
 function rowToContact(r){return {id:r.id,n:r.name,w:r.ward,p:r.phone,s:r.stance,sup:r.support,last:r.last_contact}}
 async function loadContacts(){
   if(!DB_ON)return;
@@ -1046,6 +1151,7 @@ async function deleteContact(i){
 
 /* ---------------- NAV ---------------- */
 const titles={
+ mykpi:['Миний КПИ','Гүйцэтгэлийн үзүүлэлт'],
  dashboard:['Хяналтын самбар','Кампанит ажлын ерөнхий тойм'],
  contacts:['Сонгогчид','Контакт бааз & байр суурь'],
  canvassers:['Ухуулагчид','Хэрэглэгчид & гүйцэтгэлийн самбар'],
@@ -1528,8 +1634,8 @@ function renderIssues(){
 
 /* ---------------- CANVASSERS ---------------- */
 function renderCanvassers(){
-  const maxR=Math.max(...canvassers.map(c=>c.reached));
-  const maxS=Math.max(...canvassers.map(c=>c.sup));
+  const maxR=Math.max(1,...canvassers.map(c=>c.reached));
+  const maxS=Math.max(1,...canvassers.map(c=>c.sup));
   document.getElementById('canvasserBody').innerHTML=canvassers.map((c,i)=>{
     const rk=i<3?['lb-1','lb-2','lb-3'][i]:'lb-n';
     return `<tr onclick="showCanvasser(${i})">
@@ -1557,24 +1663,50 @@ function showCanvasser(i){
     <div class="kpi-row" style="grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px">
       <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.reached}</div><div class="l">Хүрсэн гэр</div></div>
       <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px;color:var(--green)">${c.sup}</div><div class="l">Бүртгэсэн дэмжигч</div></div>
-      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${(c.sup/c.reached*100).toFixed(0)}%</div><div class="l">Хувиргалт (conversion)</div></div>
+      <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.reached>0?(c.sup/c.reached*100).toFixed(0):0}%</div><div class="l">Хувиргалт (conversion)</div></div>
       <div class="card stat" style="padding:14px"><div class="v" style="font-size:22px">${c.surveys}</div><div class="l">Цуглуулсан судалгаа</div></div>
     </div>
     <div class="detail-row"><div class="k">Хариуцсан байршил</div><div class="v">${c.w}</div></div>
-    <div class="detail-row"><div class="k">Сүүлийн check-in</div><div class="v">${c.online?'Одоо · '+c.w:'2 цагийн өмнө'}</div></div>
+    ${c.email?`<div class="detail-row"><div class="k">Нэвтрэх и-мэйл</div><div class="v">${c.email}</div></div>`:''}
+    ${(DB_ON&&c.id)?`
+    <div style="margin-top:18px;padding:14px;background:var(--bg-2);border-radius:11px;border:1px solid var(--border)">
+      <div style="font-size:12.5px;font-weight:600;color:var(--text-dim);margin-bottom:10px">КПИ шинэчлэх</div>
+      <div class="row" style="gap:10px">
+        <div class="field" style="flex:1;min-width:110px;margin-bottom:10px"><label>Хүрсэн гэр</label><input id="k-reached" type="number" value="${c.reached}"></div>
+        <div class="field" style="flex:1;min-width:110px;margin-bottom:10px"><label>Дэмжигч</label><input id="k-sup" type="number" value="${c.sup}"></div>
+      </div>
+      <div class="row" style="gap:10px">
+        <div class="field" style="flex:1;min-width:110px"><label>Хамралт %</label><input id="k-cover" type="number" value="${c.cover}"></div>
+        <div class="field" style="flex:1;min-width:110px"><label>Судалгаа</label><input id="k-surveys" type="number" value="${c.surveys}"></div>
+      </div>
+      <button class="btn" style="width:100%" onclick="saveKpi(${i})">Хадгалах</button>
+    </div>`:`
     <div style="display:flex;gap:10px;margin-top:20px">
       <button class="btn" style="flex:1" onclick="toast('Маршрут хуваарилах')">🗺 Маршрут өгөх</button>
       <button class="btn ghost" style="flex:1" onclick="toast('Зурвас илгээх')">✉ Зурвас</button>
-    </div>`;
+    </div>`}`;
   document.getElementById('detailModal').classList.add('open');
 }
 function openAgentModal(){document.getElementById('agentModal').classList.add('open')}
-function saveAgent(){
+async function saveAgent(){
   const n=document.getElementById('a-name').value.trim()||'Шинэ ухуулагч';
   const w=document.getElementById('a-ward').value.trim()||'—';
-  canvassers.unshift({n,w,reached:0,sup:0,cover:0,surveys:0,online:false});
-  document.getElementById('a-name').value='';document.getElementById('a-phone').value='';document.getElementById('a-ward').value='';
-  renderCanvassers();closeModal('agentModal');toast(n+' урилга илгээгдлээ');
+  const em=(document.getElementById('a-email').value.trim()||'').toLowerCase();
+  let rec={n,w,reached:0,sup:0,cover:0,surveys:0,online:true};
+  if(DB_ON){
+    if(!em){toast('⚠ Нэвтрэх и-мэйлийг нь оруулна уу');return;}
+    const ins=await db.from('canvassers').insert({email:em,name:n,ward:w}).select().single();
+    if(ins.error){
+      toast('⚠ '+(ins.error.code==='23505'?'Энэ и-мэйл аль хэдийн бүртгэлтэй байна':'Хадгалахад алдаа гарлаа'));
+      console.error(ins.error);return;
+    }
+    await db.from('app_users').upsert({email:em,name:n,role:'canvasser'});
+    rec=rowToCanvasser(ins.data);
+  }
+  canvassers.unshift(rec);
+  document.getElementById('a-name').value='';document.getElementById('a-email').value='';document.getElementById('a-ward').value='';
+  renderCanvassers();closeModal('agentModal');
+  toast(DB_ON?n+' бүртгэгдлээ':n+' урилга илгээгдлээ');
 }
 
 /* ---------------- LOGIN ---------------- */
@@ -1602,7 +1734,11 @@ async function doLogin(){
       toast(error.message.includes('Invalid')?'⚠ И-мэйл эсвэл нууц үг буруу байна':'⚠ '+error.message);
       return;
     }
-    loadContacts();
+    const ok=await enterApp();
+    if(!ok)return;
+    document.getElementById('loginOverlay').classList.add('hide');
+    setTimeout(()=>toast((ME.role==='admin'?'Админаар':'Ухуулагчаар')+' нэвтэрлээ'),300);
+    return;
   }
   document.getElementById('loginOverlay').classList.add('hide');
   setRole(loginRole);
@@ -1610,21 +1746,21 @@ async function doLogin(){
   setTimeout(()=>toast(who+' нэвтэрлээ'),300);
 }
 function logout(){
-  if(DB_ON)db.auth.signOut();
+  if(DB_ON){db.auth.signOut();ME=null;}
   document.getElementById('loginOverlay').classList.remove('hide');
 }
 /* жинхэнэ нэвтрэлтийн үед login формыг тохируулах + идэвхтэй session сэргээх */
 if(DB_ON){
   document.querySelector('.field label').textContent='И-мэйл';
   document.getElementById('lg-user').value='';
-  document.getElementById('lg-user').placeholder='admin@tanai-bag.mn';
+  document.getElementById('lg-user').placeholder='tanii-mail@gmail.com';
   document.getElementById('lg-pass').value='';
   document.getElementById('lg-hint').innerHTML='Бүртгэлтэй <b>и-мэйл, нууц үгээрээ</b> нэвтэрнэ үү';
-  db.auth.getSession().then(({data})=>{
+  document.querySelector('.login-roles').style.display='none'; // үүрэг нь системээс автоматаар тогтоогдоно
+  db.auth.getSession().then(async ({data})=>{
     if(data.session){
-      document.getElementById('loginOverlay').classList.add('hide');
-      setRole(loginRole);
-      loadContacts();
+      const ok=await enterApp();
+      if(ok)document.getElementById('loginOverlay').classList.add('hide');
     }
   });
 }
@@ -1637,13 +1773,13 @@ function setRole(r){
     document.getElementById('roleAva').textContent='Б';
     document.getElementById('roleMeta').innerHTML='Б. Ариунаа<small>Ухуулагч · 4-р хороо</small>';
     document.querySelectorAll('.nav-item').forEach(n=>{
-      n.style.display=adminOnly.includes(n.dataset.page)?'none':'';
+      n.style.display=(adminOnly.includes(n.dataset.page)||n.dataset.page==='mykpi')?'none':'';
     });
     toast('Ухуулагчийн дэлгэц — зөвхөн өөрийн байршил, сонгогч, судалгаа харагдана');
   }else{
     document.getElementById('roleAva').textContent='А';
     document.getElementById('roleMeta').innerHTML='Азура<small>Админ · Кампанит менежер</small>';
-    document.querySelectorAll('.nav-item').forEach(n=>n.style.display='');
+    document.querySelectorAll('.nav-item').forEach(n=>n.style.display=n.dataset.page==='mykpi'?'none':'');
     toast('Админ дэлгэц — бүх модуль, бүх ухуулагчийн гүйцэтгэл');
   }
 }
