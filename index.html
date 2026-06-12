@@ -1023,7 +1023,8 @@ async function enterApp(){
     console.warn('app_users унших боломжгүй, шилжилтийн горим:',q.error.message);
     ME={email,role:'admin',name:email.split('@')[0]};
   }else if(!q.data){
-    toast('⚠ Танд эрх олгогдоогүй байна — админд хандана уу');
+    document.getElementById('lg-hint').innerHTML='<span style="color:var(--red)">⚠ Танд эрх олгогдоогүй байна — админ таныг CRM-ийн «Ухуулагчид» хуудсанд энэ и-мэйлээр бүртгэх шаардлагатай.</span>';
+    toast('⚠ Танд эрх олгогдоогүй байна');
     await db.auth.signOut();
     return false;
   }else{
@@ -1719,11 +1720,17 @@ async function doLogin(){
     if(!email||!pass){toast('⚠ И-мэйл, нууц үгээ оруулна уу');return;}
     const {error}=await db.auth.signInWithPassword({email,password:pass});
     if(error){
-      toast(error.message.includes('Invalid')?'⚠ И-мэйл эсвэл нууц үг буруу байна':'⚠ '+error.message);
+      const msg=error.message.includes('Invalid')
+        ?'И-мэйл эсвэл нууц үг буруу байна. Данс нь Supabase → Authentication → Users дээр үүссэн эсэхийг шалгаарай.'
+        :error.message.toLowerCase().includes('confirm')
+        ?'И-мэйл баталгаажаагүй байна — Supabase дээр дансыг устгаад «Auto Confirm User» чагттай дахин үүсгэнэ үү.'
+        :error.message;
+      document.getElementById('lg-hint').innerHTML='<span style="color:var(--red)">⚠ '+msg+'</span>';
       return;
     }
     const ok=await enterApp();
     if(!ok)return;
+    document.getElementById('lg-hint').innerHTML='Бүртгэлтэй <b>и-мэйл, нууц үгээрээ</b> нэвтэрнэ үү';
     document.getElementById('loginOverlay').classList.add('hide');
     setTimeout(()=>toast((ME.role==='admin'?'Админаар':'Ухуулагчаар')+' нэвтэрлээ'),300);
     return;
