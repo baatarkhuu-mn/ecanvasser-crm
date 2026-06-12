@@ -897,7 +897,16 @@ tbody tr:last-child td{border-bottom:none}
 
 <div class="toast" id="toast">✓ <span id="toastMsg">Амжилттай</span></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
+/* ---------------- SUPABASE CONFIG ---------------- */
+/* Доорх 2 утгыг Supabase төслийнхөө Settings → API хэсгээс авч бөглөнө.
+   Хоосон үлдээвэл сайт демо горимоор (өгөгдөл хадгалагдахгүй) ажиллана. */
+const SB_URL='';
+const SB_KEY='';
+const DB_ON=!!(SB_URL&&SB_KEY&&window.supabase);
+const db=DB_ON?window.supabase.createClient(SB_URL,SB_KEY):null;
+
 /* ---------------- DATA ---------------- */
 const C1=['#4f7cff','#a98bff','#2dd4a7','#f5b54a','#ff7bb0','#ff6b7a'];
 function avc(i){return C1[i%C1.length]}
@@ -986,6 +995,54 @@ let canvassers=[
  {n:'Г. Нараа',w:'6-р хороо',reached:241,sup:119,cover:54,surveys:52,online:true},
  {n:'Д. Эрдэнэ',w:'8-р хороо',reached:198,sup:88,cover:47,surveys:41,online:false},
 ];
+
+/* ---------------- DB SYNC (Supabase) ---------------- */
+function rowToContact(r){return {id:r.id,n:r.name,w:r.ward,p:r.phone,s:r.stance,sup:r.support,last:r.last_contact}}
+async function loadContacts(){
+  if(!DB_ON)return;
+  const {data,error}=await db.from('contacts').select('*').order('created_at',{ascending:false});
+  if(error){toast('⚠ Дата ачаалахад алдаа гарлаа');console.error(error);return;}
+  contacts=data.map(rowToContact);
+  renderContacts();
+  updateVoterCount();
+}
+function updateVoterCount(){
+  if(!DB_ON)return;
+  const el=document.querySelector('#dashboard .stat .v');
+  if(el){el.dataset.cv=contacts.length.toLocaleString('en-US');el.textContent=el.dataset.cv;}
+  const badge=document.querySelector('.nav-item[data-page="contacts"] .badge');
+  if(badge)badge.textContent=contacts.length;
+}
+const stanceSup={'Дэмжигч':85,'Тэнцсэн':55,'Эргэлзэж буй':40,'Эсрэг':20};
+async function setStance(i,s){
+  const c=contacts[i];
+  c.s=s;c.sup=stanceSup[s];c.last='Өнөөдөр';
+  if(DB_ON&&c.id){
+    const {error}=await db.from('contacts').update({stance:s,support:c.sup,last_contact:'Өнөөдөр'}).eq('id',c.id);
+    if(error){toast('⚠ Хадгалахад алдаа гарлаа');console.error(error);return;}
+  }
+  renderContacts();showContact(i);toast(c.n+' — «'+s+'» гэж бүртгэгдлээ');
+}
+async function recordVisit(i){
+  const c=contacts[i];
+  c.last='Өнөөдөр';
+  if(DB_ON&&c.id){
+    const {error}=await db.from('contacts').update({last_contact:'Өнөөдөр (байгаагүй)'}).eq('id',c.id);
+    if(error){toast('⚠ Хадгалахад алдаа гарлаа');console.error(error);return;}
+    c.last='Өнөөдөр (байгаагүй)';
+  }
+  renderContacts();toast('Гэртээ байгаагүй гэж тэмдэглэв');
+}
+async function deleteContact(i){
+  const c=contacts[i];
+  if(!confirm(c.n+' — энэ сонгогчийг устгах уу?'))return;
+  if(DB_ON&&c.id){
+    const {error}=await db.from('contacts').delete().eq('id',c.id);
+    if(error){toast('⚠ Устгахад алдаа гарлаа');console.error(error);return;}
+  }
+  contacts.splice(i,1);
+  renderContacts();updateVoterCount();closeModal('detailModal');toast(c.n+' устгагдлаа');
+}
 
 /* ---------------- NAV ---------------- */
 const titles={
@@ -1107,15 +1164,17 @@ function showContact(i){
     <div style="margin-top:18px;padding:14px;background:var(--bg-2);border-radius:11px;border:1px solid var(--border)">
       <div style="font-size:12.5px;font-weight:600;color:var(--text-dim);margin-bottom:10px">Уулзалтын үр дүн бүртгэх</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap">
-        <button class="chip" onclick="toast('Дэмжигч гэж тэмдэглэв')">✓ Дэмжинэ</button>
-        <button class="chip" onclick="toast('Эргэлзэж буй гэж тэмдэглэв')">~ Эргэлзэж буй</button>
-        <button class="chip" onclick="toast('Эсрэг гэж тэмдэглэв')">✕ Эсрэг</button>
-        <button class="chip" onclick="toast('Гэртээ байсангүй')">🚪 Байгаагүй</button>
+        <button class="chip" onclick="setStance(${i},'Дэмжигч')">✓ Дэмжинэ</button>
+        <button class="chip" onclick="setStance(${i},'Тэнцсэн')">= Тэнцсэн</button>
+        <button class="chip" onclick="setStance(${i},'Эргэлзэж буй')">~ Эргэлзэж буй</button>
+        <button class="chip" onclick="setStance(${i},'Эсрэг')">✕ Эсрэг</button>
+        <button class="chip" onclick="recordVisit(${i})">🚪 Байгаагүй</button>
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn" style="flex:1" onclick="toast('Дуудлага бүртгэгдлээ')">📞 Залгах</button>
       <button class="btn ghost" style="flex:1" onclick="toast('Тэмдэглэл хадгалагдлаа')">✎ Тэмдэглэл</button>
+      <button class="btn ghost" style="color:var(--red)" onclick="deleteContact(${i})" title="Устгах">🗑</button>
     </div>`;
   document.getElementById('detailModal').classList.add('open');
 }
@@ -1523,6 +1582,7 @@ let loginRole='admin';
 function pickLoginRole(r){
   loginRole=r;
   document.querySelectorAll('.login-role').forEach(el=>el.classList.toggle('sel',el.dataset.role===r));
+  if(DB_ON)return; // жинхэнэ нэвтрэлтийн үед талбаруудыг хөндөхгүй
   const isAgent=r==='agent';
   document.querySelector('#lg-passField label').textContent=isAgent?'SMS баталгаажуулах код':'Нууц үг';
   document.getElementById('lg-pass').type=isAgent?'text':'password';
@@ -1532,14 +1592,41 @@ function pickLoginRole(r){
     ?'Ухуулагч SMS-ээр ирсэн <b>кодоор</b> нэвтэрнэ (демо)'
     :'Демо горим — <b>дурын утгаар</b> нэвтэрч болно';
 }
-function doLogin(){
+async function doLogin(){
+  if(DB_ON){
+    const email=document.getElementById('lg-user').value.trim();
+    const pass=document.getElementById('lg-pass').value;
+    if(!email||!pass){toast('⚠ И-мэйл, нууц үгээ оруулна уу');return;}
+    const {error}=await db.auth.signInWithPassword({email,password:pass});
+    if(error){
+      toast(error.message.includes('Invalid')?'⚠ И-мэйл эсвэл нууц үг буруу байна':'⚠ '+error.message);
+      return;
+    }
+    loadContacts();
+  }
   document.getElementById('loginOverlay').classList.add('hide');
   setRole(loginRole);
   const who=loginRole==='admin'?'Админаар':'Ухуулагчаар';
   setTimeout(()=>toast(who+' нэвтэрлээ'),300);
 }
 function logout(){
+  if(DB_ON)db.auth.signOut();
   document.getElementById('loginOverlay').classList.remove('hide');
+}
+/* жинхэнэ нэвтрэлтийн үед login формыг тохируулах + идэвхтэй session сэргээх */
+if(DB_ON){
+  document.querySelector('.field label').textContent='И-мэйл';
+  document.getElementById('lg-user').value='';
+  document.getElementById('lg-user').placeholder='admin@tanai-bag.mn';
+  document.getElementById('lg-pass').value='';
+  document.getElementById('lg-hint').innerHTML='Бүртгэлтэй <b>и-мэйл, нууц үгээрээ</b> нэвтэрнэ үү';
+  db.auth.getSession().then(({data})=>{
+    if(data.session){
+      document.getElementById('loginOverlay').classList.add('hide');
+      setRole(loginRole);
+      loadContacts();
+    }
+  });
 }
 
 /* ---------------- ROLE SWITCH ---------------- */
@@ -1578,15 +1665,21 @@ function openAdd(){document.getElementById('addModal').classList.add('open')}
 function openSurveyModal(){document.getElementById('surveyModal').classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
-function saveContact(){
+async function saveContact(){
   const n=document.getElementById('f-name').value.trim()||'Шинэ сонгогч';
   const w=document.getElementById('f-ward').value.trim()||'—';
   const p=document.getElementById('f-phone').value.trim()||'—';
   const s=document.getElementById('f-stance').value;
-  const sup=s==='Дэмжигч'?85:s==='Тэнцсэн'?55:s==='Эргэлзэж буй'?40:20;
-  contacts.unshift({n,w,p,s,sup,last:'Өнөөдөр'});
+  const sup=stanceSup[s]||50;
+  let rec={n,w,p,s,sup,last:'Өнөөдөр'};
+  if(DB_ON){
+    const {data,error}=await db.from('contacts').insert({name:n,ward:w,phone:p,stance:s,support:sup,last_contact:'Өнөөдөр'}).select().single();
+    if(error){toast('⚠ Хадгалахад алдаа гарлаа');console.error(error);return;}
+    rec=rowToContact(data);
+  }
+  contacts.unshift(rec);
   document.getElementById('f-name').value='';document.getElementById('f-ward').value='';document.getElementById('f-phone').value='';
-  renderContacts();closeModal('addModal');toast(n+' нэмэгдлээ');
+  renderContacts();updateVoterCount();closeModal('addModal');toast(n+' нэмэгдлээ');
 }
 let toastT;
 function toast(m){
